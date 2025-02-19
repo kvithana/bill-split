@@ -16,6 +16,7 @@ const ReceiptMetadataSchema = z.object({
 });
 
 const ReceiptLineItemSchema = z.object({
+  id: z.string(),
   name: z.string(),
   quantity: z.number(),
   totalPriceInCents: z.number(),
@@ -33,11 +34,12 @@ const SplitMethodSchema = z.enum([
 ]);
 
 const ReceiptAdjustmentSchema = z.object({
+  id: z.string(),
   name: z.string(),
   amountInCents: z.number(),
   splitting: z.object({
     method: SplitMethodSchema,
-    portions: z.array(PersonPortionSchema).optional(), // Used when method is 'manual'
+    portions: z.array(PersonPortionSchema).optional(),
   }),
 });
 

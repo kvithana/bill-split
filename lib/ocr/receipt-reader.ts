@@ -1,10 +1,10 @@
 import { OpenAI } from "openai";
-import { Receipt, ReceiptScanSchema } from "@/lib/types";
+import { ReceiptScanSchema } from "@/lib/types";
 import fs from "fs";
 import path from "path";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { config } from "@/config";
-import { generateId } from "@/lib/id";
+import { Receipt } from "../receipt";
 
 type ReceiptReaderResponse = {
   receipt: Receipt | null;
@@ -59,13 +59,10 @@ export class ReceiptReader {
       };
     } else {
       const scanned = ReceiptScanSchema.parse(JSON.parse(result.content!));
-      const receipt: Receipt = {
+      const receipt = Receipt.create({
         ...scanned,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-        people: [],
         imageUrl,
-      };
+      });
       return {
         receipt,
         success: true,
