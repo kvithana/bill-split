@@ -7,22 +7,19 @@ import { config } from "@/config";
 import { generateId } from "@/lib/id";
 
 type ReceiptReaderResponse = {
-  receipt: Receipt | null,
-  success: boolean,
-  error: string | null,
-}
+  receipt: Receipt | null;
+  success: boolean;
+  error: string | null;
+};
 
 export class ReceiptReader {
   constructor(
     private readonly openai: OpenAI,
     private readonly prompt: string
-  ) { }
+  ) {}
 
   static create(init?: { openai?: OpenAI }): ReceiptReader {
-    const prompt = fs.readFileSync(
-      path.join(__dirname, "prompt.txt"),
-      "utf8"
-    );
+    const prompt = fs.readFileSync(path.join(__dirname, "prompt.txt"), "utf8");
 
     const openai = init?.openai ?? new OpenAI({ apiKey: config.openaiApiKey() });
 
@@ -43,23 +40,23 @@ export class ReceiptReader {
             {
               type: "image_url",
               image_url: {
-                "url": imageUrl,
+                url: imageUrl,
               },
-            }
+            },
           ],
         },
       ],
       response_format: zodResponseFormat(ReceiptScanSchema, "receipt"),
     });
 
-    const result = completion.choices[0].message
+    const result = completion.choices[0].message;
 
     if (result.refusal) {
       return {
         receipt: null,
         success: false,
         error: result.refusal,
-      }
+      };
     } else {
       const scanned = ReceiptScanSchema.parse(JSON.parse(result.content!));
       const receipt: Receipt = {
@@ -68,12 +65,12 @@ export class ReceiptReader {
         createdAt: new Date().toISOString(),
         people: [],
         imageUrl,
-      }
+      };
       return {
         receipt,
         success: true,
         error: null,
-      }
+      };
     }
   }
 }
