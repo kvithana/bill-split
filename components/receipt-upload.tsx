@@ -16,12 +16,12 @@ import { useRef, useState } from "react"
 
 type ImportState = "initial" | "uploading" | "analyzing" | "done"
 
-export default function ReceiptImport({ onDone }: { onDone: () => void }) {
+export default function ReceiptImport({ onDone }: { onDone: (id: string) => void }) {
   const [importState, setImportState] = useState<ImportState>("initial")
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { data } = useIp()
-  const [analyse] = useAnalyseReceipt()
+  const [analyse, { data: receipt }] = useAnalyseReceipt()
   const addReceipt = useReceiptStore((state) => state.addReceipt)
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,7 +160,7 @@ export default function ReceiptImport({ onDone }: { onDone: () => void }) {
             >
               <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
               <p className="text-lg font-semibold text-green-500 mb-2">Analysis Complete!</p>
-              <Button onClick={onDone}>View Receipt</Button>
+              <Button onClick={() => receipt && onDone(receipt.id)}>View Receipt</Button>
             </motion.div>
           )}
         </AnimatePresence>
