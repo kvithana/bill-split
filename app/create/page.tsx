@@ -1,7 +1,7 @@
 "use client"
 
 import ReceiptImport from "@/components/receipt-upload"
-import { useRouter } from "next/router"
+import { useRouter } from "next/navigation"
 
 export default function CreatePage() {
   const router = useRouter()
