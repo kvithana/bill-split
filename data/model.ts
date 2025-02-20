@@ -1,122 +1,105 @@
+import { prop, uniqBy } from "ramda"
 import { State } from "./types"
 import { Person, ReceiptAdjustment, ReceiptLineItem, Receipt as ReceiptType } from "@/lib/types"
-import { uniqBy } from "ramda"
-import { generateId } from "@/lib/id"
 
-export class ReceiptActions {
-  constructor(
-    private readonly id: string,
-    private readonly set: (fn: (state: State) => Partial<State>) => void,
-    private readonly get: () => State
-  ) {}
+type SetFn = (fn: (state: State) => Partial<State>) => void
 
-  private updateReceipt(fn: (receipt: ReceiptType) => Partial<ReceiptType>) {
-    this.set((state) => ({
-      receipts: {
-        ...state.receipts,
-        [this.id]: { ...state.receipts[this.id], ...fn(state.receipts[this.id]) },
+// Helper function to update a property in a specific receipt
+const updateReceiptProperty = <T>(
+  set: SetFn,
+  receiptId: string,
+  property: keyof ReceiptType,
+  updateFn: (current: T[]) => T[]
+) => {
+  set((state) => ({
+    receipts: {
+      ...state.receipts,
+      [receiptId]: {
+        ...state.receipts[receiptId],
+        [property]: updateFn(state.receipts[receiptId][property] as T[]),
       },
-    }))
-  }
+    },
+  }))
+}
 
-  private updateLineItem(id: string, fn: (lineItem: ReceiptLineItem) => Partial<ReceiptLineItem>) {
-    this.updateReceipt((receipt) => ({
-      ...receipt,
-      lineItems: receipt.lineItems.map((x) => (x.id === id ? { ...x, ...fn(x) } : x)),
-    }))
-  }
+export const receipt = {
+  addPerson: (set: SetFn, receiptId: string) => (person: Person) => {
+    updateReceiptProperty<Person>(set, receiptId, "people", (current) =>
+      uniqBy(prop("id"), [...current, person])
+    )
+  },
 
-  private updateAdjustment(
-    id: string,
-    fn: (adjustment: ReceiptAdjustment) => Partial<ReceiptAdjustment>
-  ) {
-    this.updateReceipt((receipt) => ({
-      ...receipt,
-      adjustments: receipt.adjustments.map((x) => (x.id === id ? { ...x, ...fn(x) } : x)),
-    }))
-  }
+  addLineItem: (set: SetFn, receiptId: string) => (lineItem: ReceiptLineItem) => {
+    updateReceiptProperty<ReceiptLineItem>(set, receiptId, "lineItems", (current) => [
+      ...current,
+      lineItem,
+    ])
+  },
 
-  addPerson(person: Omit<Person, "id">) {
-    const id = generateId()
-    this.updateReceipt((receipt) => ({
-      ...receipt,
-      people: uniqBy((x) => x.id, [...receipt.people, { ...person, id }]),
-    }))
-  }
+  addAdjustment: (set: SetFn, receiptId: string) => (adjustment: ReceiptAdjustment) => {
+    updateReceiptProperty<ReceiptAdjustment>(set, receiptId, "adjustments", (current) => [
+      ...current,
+      adjustment,
+    ])
+  },
 
-  removePerson(id: string) {
-    this.updateReceipt((receipt) => ({
-      ...receipt,
-      people: receipt.people.filter((x) => x.id !== id),
-    }))
-  }
+  removePerson: (set: SetFn, receiptId: string) => (personId: string) => {
+    updateReceiptProperty<Person>(set, receiptId, "people", (current) =>
+      current.filter((person) => person.id !== personId)
+    )
+    updateReceiptProperty<ReceiptLineItem>(set, receiptId, "lineItems", (current) =>
+      current.map((item) => ({
+        ...item,
+        splitting: {
+          ...item.splitting,
+          portions:
+            item.splitting?.portions.filter((portion) => portion.personId !== personId) ?? [],
+        },
+      }))
+    )
+    updateReceiptProperty<ReceiptAdjustment>(set, receiptId, "adjustments", (current) =>
+      current.map((adj) => ({
+        ...adj,
+        splitting: {
+          ...adj.splitting,
+          portions: adj.splitting?.portions
+            ? adj.splitting.portions.filter((portion) => portion.personId !== personId)
+            : undefined,
+        },
+      }))
+    )
+  },
 
-  updatePerson(id: string, person: Omit<Person, "id">) {
-    this.updateReceipt((receipt) => ({
-      people: receipt.people.map((x) => (x.id === id ? { ...x, ...person } : x)),
-    }))
-  }
+  removeLineItem: (set: SetFn, receiptId: string) => (lineItemId: string) => {
+    updateReceiptProperty<ReceiptLineItem>(set, receiptId, "lineItems", (current) =>
+      current.filter((item) => item.id !== lineItemId)
+    )
+  },
 
-  addPersonToLineItem(lineItemId: string, personId: string) {
-    const person = this.get().receipts[this.id].people.find((x) => x.id === personId)
-    if (!person) {
-      throw new Error("Person not found")
-    }
-    this.updateLineItem(lineItemId, (lineItem) => ({
-      splitting: {
-        portions: uniqBy(
-          (x) => x.personId,
-          [...(lineItem.splitting?.portions ?? []), { personId, portions: 1 }]
-        ),
-      },
-    }))
-  }
+  removeAdjustment: (set: SetFn, receiptId: string) => (adjustmentId: string) => {
+    updateReceiptProperty<ReceiptAdjustment>(set, receiptId, "adjustments", (current) =>
+      current.filter((adj) => adj.id !== adjustmentId)
+    )
+  },
 
-  removePersonFromLineItem(lineItemId: string, personId: string) {
-    this.updateLineItem(lineItemId, (lineItem) => ({
-      splitting: {
-        portions: lineItem.splitting
-          ? lineItem.splitting.portions.filter((x) => x.personId !== personId)
-          : [],
-      },
-    }))
-  }
+  updateLineItem:
+    (set: SetFn, receiptId: string) => (lineItemId: string, updates: Partial<ReceiptLineItem>) => {
+      updateReceiptProperty<ReceiptLineItem>(set, receiptId, "lineItems", (current) =>
+        current.map((item) => (item.id === lineItemId ? { ...item, ...updates } : item))
+      )
+    },
 
-  addLineItem(lineItem: Omit<ReceiptLineItem, "id">) {
-    const id = generateId()
-    this.updateReceipt((receipt) => ({
-      lineItems: [...receipt.lineItems, { ...lineItem, id }],
-    }))
-  }
+  updateAdjustment:
+    (set: SetFn, receiptId: string) =>
+    (adjustmentId: string, updates: Partial<ReceiptAdjustment>) => {
+      updateReceiptProperty<ReceiptAdjustment>(set, receiptId, "adjustments", (current) =>
+        current.map((adj) => (adj.id === adjustmentId ? { ...adj, ...updates } : adj))
+      )
+    },
 
-  removeLineItem(id: string) {
-    this.updateReceipt((receipt) => ({
-      lineItems: receipt.lineItems.filter((x) => x.id !== id),
-    }))
-  }
-
-  updateLineItemDetails(id: string, lineItem: Omit<ReceiptLineItem, "id" | "splitting">) {
-    this.updateLineItem(id, () => ({
-      ...lineItem,
-    }))
-  }
-
-  addAdjustment(adjustment: Omit<ReceiptAdjustment, "id" | "splitting">) {
-    const id = generateId()
-    this.updateReceipt((receipt) => ({
-      adjustments: [...receipt.adjustments, { ...adjustment, id, splitting: { method: "equal" } }],
-    }))
-  }
-
-  removeAdjustment(id: string) {
-    this.updateReceipt((receipt) => ({
-      adjustments: receipt.adjustments.filter((x) => x.id !== id),
-    }))
-  }
-
-  updateAdjustmentDetails(id: string, adjustment: Omit<ReceiptAdjustment, "id" | "splitting">) {
-    this.updateAdjustment(id, () => ({
-      ...adjustment,
-    }))
-  }
+  updatePerson: (set: SetFn, receiptId: string) => (personId: string, updates: Partial<Person>) => {
+    updateReceiptProperty<Person>(set, receiptId, "people", (current) =>
+      current.map((person) => (person.id === personId ? { ...person, ...updates } : person))
+    )
+  },
 }

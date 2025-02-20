@@ -28,6 +28,7 @@ export class Receipt {
       people: [],
       imageUrl: params.imageUrl,
       metadata: params.metadata,
+      billName: "Untitled Bill",
       lineItems: params.lineItems.map((item) => ({
         ...item,
         id: generateId(),
