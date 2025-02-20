@@ -1,16 +1,16 @@
-import { OpenAI } from "openai";
-import { ReceiptScanSchema } from "@/lib/types";
-import fs from "fs";
-import path from "path";
-import { zodResponseFormat } from "openai/helpers/zod";
-import { config } from "@/config";
-import { Receipt } from "../receipt";
+import { OpenAI } from "openai"
+import { ReceiptScanSchema, Receipt as ReceiptType } from "@/lib/types"
+import fs from "fs"
+import path from "path"
+import { zodResponseFormat } from "openai/helpers/zod"
+import { config } from "@/config"
+import { Receipt } from "../receipt"
 
-type ReceiptReaderResponse = {
-  receipt: Receipt | null;
-  success: boolean;
-  error: string | null;
-};
+export type ReceiptReaderResponse = {
+  receipt: ReceiptType | null
+  success: boolean
+  error: string | null
+}
 
 export class ReceiptReader {
   constructor(
@@ -19,9 +19,9 @@ export class ReceiptReader {
   ) {}
 
   static create(init?: { openai?: OpenAI }): ReceiptReader {
-    const openai = init?.openai ?? new OpenAI({ apiKey: config.openaiApiKey() });
+    const openai = init?.openai ?? new OpenAI({ apiKey: config.openaiApiKey() })
 
-    return new ReceiptReader(openai);
+    return new ReceiptReader(openai)
   }
 
   async readReceipt(imageUrl: string): Promise<ReceiptReaderResponse> {
@@ -45,27 +45,27 @@ export class ReceiptReader {
         },
       ],
       response_format: zodResponseFormat(ReceiptScanSchema, "receipt"),
-    });
+    })
 
-    const result = completion.choices[0].message;
+    const result = completion.choices[0].message
 
     if (result.refusal) {
       return {
         receipt: null,
         success: false,
         error: result.refusal,
-      };
+      }
     } else {
-      const scanned = ReceiptScanSchema.parse(JSON.parse(result.content!));
+      const scanned = ReceiptScanSchema.parse(JSON.parse(result.content!))
       const receipt = Receipt.create({
         ...scanned,
         imageUrl,
-      });
+      })
       return {
-        receipt,
+        receipt: receipt.toData(),
         success: true,
         error: null,
-      };
+      }
     }
   }
 }
@@ -77,4 +77,4 @@ Note that adjustments are things such as credit card surcharges, tips, holiday s
 You can rename these to a more descriptive name if necessary. 
 Wait and validate the entries to ensure they are correct.
 Leave \`splitting\` fields on line items undefined.
-`;
+`

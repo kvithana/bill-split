@@ -1,45 +1,56 @@
-"use client";
+"use client"
 
-import { useAnalyseReceipt } from "@/hooks/use-analyse-receipt";
-import { useIp } from "@/hooks/use-ip";
-import { ipHash } from "@/lib/ip-hash";
-import { type PutBlobResult } from "@vercel/blob";
-import { upload } from "@vercel/blob/client";
-import { useState, useRef } from "react";
+import { useReceiptStore } from "@/data/state"
+import { useAnalyseReceipt } from "@/hooks/use-analyse-receipt"
+import { useIp } from "@/hooks/use-ip"
+import useStore from "@/hooks/use-store"
+import { ipHash } from "@/lib/ip-hash"
+import { type PutBlobResult } from "@vercel/blob"
+import { upload } from "@vercel/blob/client"
+import { useState, useRef, useEffect } from "react"
 
 export default function CreatePage() {
-  const inputFileRef = useRef<HTMLInputElement>(null);
-  const [blob, setBlob] = useState<PutBlobResult | null>(null);
-  const { data } = useIp();
-  const [analyse, { data: receipt, error, isLoading }] = useAnalyseReceipt();
+  const inputFileRef = useRef<HTMLInputElement>(null)
+  const [blob, setBlob] = useState<PutBlobResult | null>(null)
+  const { data } = useIp()
+  const [analyse, { data: receipt, error, isLoading }] = useAnalyseReceipt()
+  const addReceipt = useReceiptStore((state) => state.addReceipt)
+
+  useEffect(() => {
+    if (receipt && addReceipt) {
+      console.log(receipt, addReceipt)
+      addReceipt(receipt)
+    }
+  }, [receipt, addReceipt])
+
   return (
     <>
       <h1>Upload Your Receipt</h1>
 
       <form
         onSubmit={async (event) => {
-          event.preventDefault();
+          event.preventDefault()
 
           if (!inputFileRef.current?.files) {
-            throw new Error("No file selected");
+            throw new Error("No file selected")
           }
 
-          const file = inputFileRef.current.files[0];
+          const file = inputFileRef.current.files[0]
 
-          const ip = data?.ip;
+          const ip = data?.ip
 
           if (!ip) {
-            throw new Error("No IP address found");
+            throw new Error("No IP address found")
           }
 
-          const path = [ipHash(ip), file.name].join("/");
+          const path = [ipHash(ip), file.name].join("/")
 
           const newBlob = await upload(path, file, {
             access: "public",
             handleUploadUrl: "/api/receipt/upload",
-          });
+          })
 
-          setBlob(newBlob);
+          setBlob(newBlob)
         }}
       >
         <input name="file" ref={inputFileRef} type="file" required />
@@ -53,5 +64,5 @@ export default function CreatePage() {
         </div>
       )}
     </>
-  );
+  )
 }
