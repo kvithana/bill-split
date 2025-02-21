@@ -73,7 +73,7 @@ export default function DisplayView({
             <Button
               key={item.id}
               variant="ghost"
-              className="w-full flex justify-between items-start whitespace-normal h-auto"
+              className="w-full flex justify-between items-start whitespace-normal h-auto md:px-4 px-3"
               onClick={() => {
                 if (contentRef.current) {
                   sessionStorage.setItem("scrollPosition", contentRef.current.scrollTop.toString())
@@ -141,7 +141,7 @@ export default function DisplayView({
           ))}
         </div>
       </CardContent>
-      <div className="border-t border-dashed border-gray-300 p-4 md:px-8">
+      <div className="border-t border-dashed border-gray-300 p-4 px-5 md:px-8">
         <h3 className="font-bold mb-2">People</h3>
         <div className="flex flex-wrap gap-2">
           {receipt.people.map((person) => (
@@ -182,7 +182,7 @@ export default function DisplayView({
           </Dialog>
         </div>
       </div>
-      <CardFooter className="flex justify-between items-center border-t border-dashed border-gray-300 p-4">
+      <CardFooter className="flex justify-between items-center border-t border-dashed border-gray-300 p-4 px-6">
         <span className="font-bold">Total</span>
         <span className="font-bold text-lg">${(metadata.totalInCents / 100).toFixed(2)}</span>
       </CardFooter>

@@ -282,9 +282,11 @@ export default function EditItemsView({
           ${calculateTotal()}
         </span>
       </CardFooter>
-      <Button onClick={handleSave} className="w-full mt-4">
-        Save Changes
-      </Button>
+      <div className="p-4 mt-2">
+        <Button onClick={handleSave} className="w-full">
+          Save Changes
+        </Button>
+      </div>
     </Card>
   )
 }

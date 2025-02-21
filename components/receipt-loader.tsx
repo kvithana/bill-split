@@ -4,10 +4,12 @@ import useStore from "@/hooks/use-store"
 import { useSearchParams } from "next/navigation"
 import ReceiptContainer from "./receipt-container"
 import { Suspense } from "react"
+import { Toaster } from "@/components/ui/toaster"
 
 export function ReceiptLoader() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
+      <Toaster />
       <SuspensedLoader />
     </Suspense>
   )

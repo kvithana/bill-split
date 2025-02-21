@@ -13,6 +13,7 @@ import type {
 import * as R from "ramda"
 import { getColorForPerson } from "@/lib/colors"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { ChevronDown, ChevronUp } from "lucide-react"
 
 type Props = {
   receipt: Receipt
@@ -44,10 +45,10 @@ export default function SummaryView({ receipt }: Props) {
           calculatePortionAmount(item.totalPriceInCents, personPortion.portions, totalPortions)
         )
       }, 0)
-    )(receipt.lineItems)
+    )(receipt.lineItems || [])
 
   const calculateReceiptLineItemsTotal = (): number =>
-    R.sum(receipt.lineItems.map((item) => item.totalPriceInCents || 0))
+    R.sum((receipt.lineItems || []).map((item) => item.totalPriceInCents || 0))
 
   const calculateAdjustmentAmount = (adjustment: ReceiptAdjustment, personId: string): number => {
     if (adjustment.splitting.method === "equal") {
@@ -112,7 +113,7 @@ export default function SummaryView({ receipt }: Props) {
         <p className="text-xs text-gray-500">{new Date(receipt.createdAt).toLocaleDateString()}</p>
         <p className="text-sm font-handwriting mt-2">{receipt.billName}</p>
       </CardHeader>
-      <CardContent className="p-4 space-y-4">
+      <CardContent className="p-2 space-y-4">
         {receipt.people.map((person: Person, index) => (
           <div key={person.id} className="border-b border-dashed border-gray-300 pb-2">
             <Button
@@ -131,7 +132,14 @@ export default function SummaryView({ receipt }: Props) {
                 </Avatar>
                 <span>{person.name}</span>
               </div>
-              <span>{formatCurrency(calculatePersonTotal(person.id))}</span>
+              <div className="flex items-center space-x-2">
+                <span>{formatCurrency(calculatePersonTotal(person.id))}</span>
+                {expandedPerson === person.id ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </div>
             </Button>
             {expandedPerson === person.id && (
               <div className="mt-2 space-y-1 px-4">
@@ -141,10 +149,18 @@ export default function SummaryView({ receipt }: Props) {
                     <span>{formatCurrency(item.amount)}</span>
                   </div>
                 ))}
+                <div className="flex justify-between text-sm font-bold pt-2 border-t border-dashed border-gray-300 mt-2">
+                  <span>Total</span>
+                  <span>{formatCurrency(calculatePersonTotal(person.id))}</span>
+                </div>
               </div>
             )}
           </div>
         ))}
+        <div className="flex justify-between font-bold text-lg px-4 p-4">
+          <span>Total</span>
+          <span>{formatCurrency(calculateReceiptLineItemsTotal())}</span>
+        </div>
       </CardContent>
     </Card>
   )
