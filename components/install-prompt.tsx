@@ -2,14 +2,18 @@
 
 import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
-import { Share, Plus, Download } from "lucide-react"
+import { Share, Plus, Download, X } from "lucide-react"
 
 export function InstallPrompt() {
   const [isIOS, setIsIOS] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
-  const [isSafari, setIsSafari] = useState(false)
+  const [isDismissed, setIsDismissed] = useState(true) // Start hidden until we check localStorage
 
   useEffect(() => {
+    // Check localStorage first
+    const dismissed = localStorage.getItem("installPromptDismissed")
+    setIsDismissed(!!dismissed)
+
     // Improved iOS detection
     const iOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) &&
@@ -19,15 +23,19 @@ export function InstallPrompt() {
     const safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
 
     setIsIOS(iOS)
-    setIsSafari(safari)
     setIsStandalone(
       window.matchMedia("(display-mode: standalone)").matches ||
         (window.navigator as any).standalone === true
     )
   }, [])
 
-  // Only show for iOS Safari and when not in standalone mode
-  if (isStandalone || (!isIOS && !isSafari)) {
+  const handleDismiss = () => {
+    localStorage.setItem("installPromptDismissed", "true")
+    setIsDismissed(true)
+  }
+
+  // Only show when not standalone and not dismissed
+  if (isStandalone || isDismissed) {
     return null
   }
 
@@ -36,9 +44,17 @@ export function InstallPrompt() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 1 }}
-      className="flex flex-col items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50/50 backdrop-blur-sm"
+      className="relative flex flex-col items-center gap-3 p-4 rounded-lg border border-gray-200 bg-gray-50/50 backdrop-blur-sm"
     >
-      <div className="flex items-center gap-2 text-sm font-mono text-gray-600">
+      <button
+        onClick={handleDismiss}
+        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600"
+        aria-label="Dismiss"
+      >
+        <X className="w-4 h-4" />
+      </button>
+
+      <div className="flex items-center gap-2 text-sm font-mono text-gray-600 mt-1">
         <Download className="w-4 h-4" />
         <span>Install app</span>
       </div>
