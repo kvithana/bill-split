@@ -134,8 +134,14 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{
-              duration: fromScan ? 5 : 0.5,
-              ease: "easeOut",
+              animate: {
+                duration: fromScan ? 5 : 0.5,
+                ease: "easeOut",
+              },
+              exit: {
+                duration: 0.5,
+                ease: "easeOut",
+              },
             }}
             onAnimationComplete={() => setIsReceiptMounted(true)}
           >
