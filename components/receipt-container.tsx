@@ -53,7 +53,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   useEffect(() => {
     if (!isVisible) {
       const timer = setTimeout(() => {
-        router.push("/")
+        window.location.href = "/"
       }, 500) // Wait for exit animation to complete
       return () => clearTimeout(timer)
     }

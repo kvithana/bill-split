@@ -84,7 +84,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => router.push("/")}
+        onClick={() => (window.location.href = "/")}
         className="absolute -top-16 left-4 font-mono text-gray-500 hover:text-gray-800"
       >
         <ArrowLeft className="h-4 w-4 mr-1" />
