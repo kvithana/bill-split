@@ -9,7 +9,7 @@ import { ipHash } from "@/lib/ip-hash"
 import { upload } from "@vercel/blob/client"
 import { AnimatePresence, motion } from "framer-motion"
 import { ArrowLeft, Camera, CheckCircle, Upload, X } from "lucide-react"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { toast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { useDropzone } from "react-dropzone"
@@ -23,6 +23,17 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
   const [analyse] = useAnalyseReceipt()
   const addReceipt = useReceiptStore((state) => state.addReceipt)
   const [success, setSuccess] = useState(false)
+
+  // Add a reference to the file input
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Consolidate file selection handling
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleFile(file)
+    // Clear the input value to ensure onChange fires even if same file is selected
+    e.target.value = ""
+  }
 
   const handleFile = async (file: File) => {
     try {
@@ -79,6 +90,15 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
     multiple: false,
   })
 
+  // Update the button click handlers
+  const openFilePicker = (capture?: boolean) => (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (fileInputRef.current) {
+      fileInputRef.current.capture = capture ? "environment" : ""
+      fileInputRef.current.click()
+    }
+  }
+
   return (
     <div className="relative w-full max-w-xl mx-auto px-4 -mt-16">
       <Button
@@ -106,7 +126,15 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
               {...getRootProps()}
               className="w-full h-full flex flex-col items-center justify-center"
             >
-              <input {...getInputProps()} capture="environment" />
+              <input {...getInputProps()} />
+              {/* Add hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
               <Upload
                 className={`w-16 h-16 mb-6 transition-transform ${
                   isDragActive ? "text-gray-400 scale-110" : "text-gray-300 group-hover:scale-110"
@@ -120,18 +148,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
                   variant="outline"
                   size="sm"
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    const input = document.createElement("input")
-                    input.type = "file"
-                    input.accept = "image/*"
-                    input.capture = "environment"
-                    input.onchange = (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0]
-                      if (file) handleFile(file)
-                    }
-                    input.click()
-                  }}
+                  onClick={openFilePicker(true)}
                   className="font-mono"
                 >
                   <Camera className="w-4 h-4 mr-2" />
@@ -141,17 +158,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
                   variant="outline"
                   size="sm"
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    const input = document.createElement("input")
-                    input.type = "file"
-                    input.accept = "image/*"
-                    input.onchange = (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0]
-                      if (file) handleFile(file)
-                    }
-                    input.click()
-                  }}
+                  onClick={openFilePicker(false)}
                   className="font-mono"
                 >
                   <Upload className="w-4 h-4 mr-2" />
@@ -182,7 +189,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
             <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center">
               <div className="h-16 w-16 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
               <p className="text-sm text-gray-600 font-mono mt-6">
-                {importState === "uploading" ? "Uploading" : "Analyzing"}
+                {importState === "uploading" ? "Uploading" : "Processing"}
               </p>
               <div className="flex space-x-2 mt-2">
                 {[...Array(3)].map((_, i) => (
@@ -219,7 +226,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
             className="flex flex-col items-center justify-center min-h-[500px] rounded-lg bg-red-50"
           >
             <X className="w-16 h-16 text-red-600 mb-6" />
-            <p className="text-red-600 font-mono mb-4">Failed to process receipt</p>
+            <p className="text-red-600 font-mono mb-4">Failed to read receipt</p>
             <Button
               variant="outline"
               onClick={() => setImportState("initial")}
