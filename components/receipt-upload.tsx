@@ -24,6 +24,8 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
   const addReceipt = useReceiptStore((state) => state.addReceipt)
   const [success, setSuccess] = useState(false)
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const handleFile = async (file: File) => {
     try {
       if (success) return
@@ -65,17 +67,15 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
     }
   }
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (file) handleFile(file)
-  }, [])
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      const file = acceptedFiles[0]
+      if (file) handleFile(file)
+    },
+    [handleFile]
+  )
 
-  const {
-    getRootProps,
-    getInputProps,
-    open: openDefault,
-    isDragActive,
-  } = useDropzone({
+  const { getRootProps, getInputProps, open, isDragActive } = useDropzone({
     onDrop,
     accept: {
       "image/*": [".jpeg", ".jpg", ".png", ".heic"],
@@ -83,22 +83,14 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
     maxFiles: 1,
     multiple: false,
     noClick: true,
-  })
-
-  const { getInputProps: getCameraInputProps, open: openCamera } = useDropzone({
-    onDrop,
-    accept: {
-      "image/*": [".jpeg", ".jpg", ".png", ".heic"],
-    },
-    maxFiles: 1,
-    multiple: false,
-    noClick: true,
-    noDrag: true,
   })
 
   const openFilePicker = (useCamera: boolean) => (e: React.MouseEvent) => {
     e.stopPropagation()
-    useCamera ? openCamera() : openDefault()
+    if (fileInputRef.current) {
+      fileInputRef.current.capture = useCamera ? "environment" : ""
+      fileInputRef.current.click()
+    }
   }
 
   return (
@@ -128,8 +120,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
               {...getRootProps()}
               className="w-full h-full flex flex-col items-center justify-center"
             >
-              <input {...getInputProps()} />
-              <input {...getCameraInputProps()} />
+              <input {...getInputProps()} ref={fileInputRef} />
               <Upload
                 className={`w-16 h-16 mb-6 transition-transform ${
                   isDragActive ? "text-gray-400 scale-110" : "text-gray-300 group-hover:scale-110"
