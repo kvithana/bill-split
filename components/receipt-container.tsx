@@ -11,10 +11,11 @@ import useStore from "@/hooks/use-store"
 import { generateId } from "@/lib/id"
 import FloatingNav from "./floating-nav"
 import { toast } from "@/hooks/use-toast"
-import { ArrowLeft } from "lucide-react"
+import { AlertCircle, ArrowLeft } from "lucide-react"
 import { Button } from "./ui/button"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
+import { EmptyState } from "./empty-state"
 type ViewMode = "display" | "edit" | "split" | "summary"
 
 export default function ReceiptContainer({ id, fromScan }: { id: string; fromScan: boolean }) {
@@ -77,7 +78,14 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   }
 
   if (!receipt) {
-    return <div>Receipt not found</div>
+    return (
+      <EmptyState
+        icon={<AlertCircle className="w-12 h-12 text-gray-400" />}
+        title="Receipt not found"
+        description="The receipt you're looking for doesn't exist"
+        delay={1}
+      />
+    )
   }
 
   const handleViewChange = (newView: ViewMode) => {
