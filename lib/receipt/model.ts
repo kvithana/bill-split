@@ -1,10 +1,4 @@
-import {
-  Receipt as ReceiptType,
-  Person,
-  ReceiptLineItem,
-  ReceiptAdjustment,
-  PersonPortion,
-} from "@/lib/types"
+import { Receipt as ReceiptType, ReceiptLineItem, ReceiptAdjustment } from "@/lib/types"
 import { generateId } from "@/lib/id"
 
 type CreateReceiptParams = {

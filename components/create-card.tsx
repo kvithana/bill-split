@@ -2,9 +2,15 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 
-export function CreateCard() {
+export function CreateCard({ onCreate }: { onCreate: () => void }) {
   return (
-    <Link href="/create">
+    <Link
+      href="/create"
+      onClick={(e) => {
+        e.preventDefault()
+        onCreate()
+      }}
+    >
       <Card className={"receipt w-full max-w-md mx-auto font-mono text-sm group"}>
         <CardHeader className="border-b border-dashed border-gray-300 pb-2">
           <div className="flex justify-between items-center">

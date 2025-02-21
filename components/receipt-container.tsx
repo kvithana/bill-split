@@ -14,9 +14,10 @@ import { toast } from "@/hooks/use-toast"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "./ui/button"
 import { useRouter } from "next/navigation"
+import { motion, AnimatePresence } from "framer-motion"
 type ViewMode = "display" | "edit" | "split" | "summary"
 
-export default function ReceiptContainer({ id }: { id: string }) {
+export default function ReceiptContainer({ id, fromScan }: { id: string; fromScan: boolean }) {
   const [receipt] = useStore((state) => state.receipts[id])
   const addPersonAction = useReceiptStore((state) => state.addPerson)
   const removePersonAction = useReceiptStore((state) => state.removePerson)
@@ -26,6 +27,9 @@ export default function ReceiptContainer({ id }: { id: string }) {
   const [scrollPosition, setScrollPosition] = useState<{ [key: string]: number }>({})
   const [hasEditChanges, setHasEditChanges] = useState(false)
   const router = useRouter()
+  const [showNav, setShowNav] = useState(false)
+  const [isReceiptMounted, setIsReceiptMounted] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
 
   const screenId = viewMode === "split" ? viewMode + selectedItemId : viewMode
 
@@ -34,6 +38,25 @@ export default function ReceiptContainer({ id }: { id: string }) {
       window.scrollTo(0, scrollPosition[screenId])
     }
   }, [screenId])
+
+  useEffect(() => {
+    // Once the receipt animation is complete, wait 2 seconds then show nav
+    if (isReceiptMounted) {
+      const timer = setTimeout(() => {
+        setShowNav(true)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [isReceiptMounted])
+
+  useEffect(() => {
+    if (!isVisible) {
+      const timer = setTimeout(() => {
+        router.push("/")
+      }, 500) // Wait for exit animation to complete
+      return () => clearTimeout(timer)
+    }
+  }, [isVisible, router])
 
   const handleSave = (updatedReceipt: Receipt) => {
     setReceipt(id, ReceiptSchema.parse(updatedReceipt))
@@ -88,45 +111,62 @@ export default function ReceiptContainer({ id }: { id: string }) {
       <Button
         variant="outline"
         size="sm"
-        onClick={() => router.push("/")}
+        onClick={() => setIsVisible(false)}
         className="hidden md:flex items-center fixed top-4 left-4 bg-[#fffdf8] border border-dashed border-gray-300 rounded-full"
       >
         <ArrowLeft className="h-4 w-4 mr-2" />
         <span className="text-sm font-mono">Back</span>
       </Button>
-      <div className="flex-1 w-full pb-16">
-        {viewMode === "display" && (
-          <DisplayView
-            receipt={receipt}
-            onItemSelect={handleItemSelect}
-            onAddPerson={addPerson}
-            onRemovePerson={removePerson}
-          />
+      <AnimatePresence>
+        {isVisible && (
+          <motion.div
+            id="receipt-container"
+            className="flex-1 w-full pb-16"
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{
+              duration: fromScan ? 5 : 0.5,
+              ease: "easeOut",
+            }}
+            onAnimationComplete={() => setIsReceiptMounted(true)}
+          >
+            {viewMode === "display" && (
+              <DisplayView
+                receipt={receipt}
+                onItemSelect={handleItemSelect}
+                onAddPerson={addPerson}
+                onRemovePerson={removePerson}
+              />
+            )}
+            {viewMode === "edit" && (
+              <EditItemsView
+                setHasEditChanges={setHasEditChanges}
+                receipt={receipt}
+                onSave={handleSave}
+              />
+            )}
+            {viewMode === "split" && selectedItemId && (
+              <SplittingView
+                receipt={receipt}
+                itemId={selectedItemId}
+                onSave={handleSave}
+                onBack={() => handleViewChange("display")}
+                onAddPerson={addPerson}
+              />
+            )}
+            {viewMode === "summary" && <SummaryView receipt={receipt} />}
+          </motion.div>
         )}
-        {viewMode === "edit" && (
-          <EditItemsView
-            setHasEditChanges={setHasEditChanges}
-            receipt={receipt}
-            onSave={handleSave}
-          />
-        )}
-        {viewMode === "split" && selectedItemId && (
-          <SplittingView
-            receipt={receipt}
-            itemId={selectedItemId}
-            onSave={handleSave}
-            onBack={() => handleViewChange("display")}
-            onAddPerson={addPerson}
-          />
-        )}
-        {viewMode === "summary" && <SummaryView receipt={receipt} />}
-      </div>
-      <FloatingNav
-        currentView={viewMode}
-        onViewChange={handleViewChange}
-        onBack={() => router.push("/")}
-        scrollToBottomButton={hasEditChanges}
-      />
+      </AnimatePresence>
+      {showNav && (
+        <FloatingNav
+          currentView={viewMode}
+          onViewChange={handleViewChange}
+          onBack={() => setIsVisible(false)}
+          scrollToBottomButton={hasEditChanges}
+        />
+      )}
     </div>
   )
 }
