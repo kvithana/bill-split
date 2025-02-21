@@ -30,7 +30,13 @@ interface DisplayBillProps {
   total: number
 }
 
-export default function DisplayBill({ businessName, date, items, adjustments, total }: DisplayBillProps) {
+export default function DisplayBill({
+  businessName,
+  date,
+  items,
+  adjustments,
+  total,
+}: DisplayBillProps) {
   return (
     <Card className="w-full max-w-lg mx-auto bg-[#fffdf8] font-mono text-sm">
       <CardHeader className="text-center border-b border-dashed border-gray-300">
@@ -86,4 +92,3 @@ export default function DisplayBill({ businessName, date, items, adjustments, to
     </Card>
   )
 }
-

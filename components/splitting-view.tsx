@@ -4,11 +4,12 @@ import { useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Minus } from "lucide-react"
+import { Plus, Minus, Percent, Equal, Sliders, UserPlus, UserMinus } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
+import type { Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
 import * as R from "ramda"
+import { getColorForPerson } from "@/lib/colors"
 
 export default function SplittingView({
   receipt,
@@ -126,6 +127,29 @@ export default function SplittingView({
     updateItem(updatedItem)
   }
 
+  const selectAllPeople = () => {
+    const updatedPortions = receipt.people.map((person) => ({ personId: person.id, portions: 1 }))
+    const updatedItem = {
+      ...item,
+      splitting: {
+        ...item.splitting,
+        portions: updatedPortions,
+      },
+    } as ReceiptLineItem | ReceiptAdjustment
+    updateItem(updatedItem)
+  }
+
+  const unselectAllPeople = () => {
+    const updatedItem = {
+      ...item,
+      splitting: {
+        ...item.splitting,
+        portions: [],
+      },
+    } as ReceiptLineItem | ReceiptAdjustment
+    updateItem(updatedItem)
+  }
+
   const total = isLineItem(item) ? item.totalPriceInCents : item.amountInCents
 
   const splittingMethod = !isLineItem(item) ? item.splitting?.method : "manual"
@@ -139,35 +163,65 @@ export default function SplittingView({
       <CardContent className="p-4 space-y-4">
         {!isLineItem(item) && (
           <div className="space-y-2">
-            <Label>Splitting Method</Label>
+            <Label className="font-bold">Splitting Method</Label>
             <RadioGroup
               value={splittingMethod}
               onValueChange={handleMethodChange}
               className="flex flex-col space-y-1"
             >
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-100">
                 <RadioGroupItem value="equal" id="equal" />
-                <Label htmlFor="equal">Equal - Split evenly among all people</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="proportional" id="proportional" />
-                <Label htmlFor="proportional">
-                  Proportional - Split based on each person's share of other items
+                <Label htmlFor="equal" className="flex items-center space-x-2 cursor-pointer">
+                  <Equal className="h-4 w-4" />
+                  <span>Equal - Split evenly among all people</span>
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-100">
+                <RadioGroupItem value="proportional" id="proportional" />
+                <Label
+                  htmlFor="proportional"
+                  className="flex items-center space-x-2 cursor-pointer"
+                >
+                  <Percent className="h-4 w-4" />
+                  <span>Proportional - Split based on each person's share of other items</span>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-100">
                 <RadioGroupItem value="manual" id="manual" />
-                <Label htmlFor="manual">Manual - Customize portions for each person</Label>
+                <Label htmlFor="manual" className="flex items-center space-x-2 cursor-pointer">
+                  <Sliders className="h-4 w-4" />
+                  <span>Manual - Customize portions for each person</span>
+                </Label>
               </div>
             </RadioGroup>
           </div>
         )}
         {(isLineItem(item) || splittingMethod === "manual") && (
           <div className="space-y-2">
-            <div className="flex justify-between w-full">
-              <Label>Assign to People</Label>
+            <div className="flex justify-between md:items-center w-full md:flex-row flex-col">
+              <Label className="flex-1 font-bold">Assign to People</Label>
+              <div className="space-x-2 md:mt-0 mt-2 flex w-full md:w-auto md:flex-1">
+                <Button
+                  className="w-full md:w-auto"
+                  variant="outline"
+                  size="sm"
+                  onClick={selectAllPeople}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Select All
+                </Button>
+                <Button
+                  className="w-full md:w-auto"
+                  variant="outline"
+                  size="sm"
+                  onClick={unselectAllPeople}
+                >
+                  <UserMinus className="h-4 w-4 mr-2" />
+                  Unselect All
+                </Button>
+              </div>
             </div>
-            {receipt.people.map((person) => {
+            {receipt.people.map((person, index) => {
               const isSelected = item.splitting?.portions?.some((p) => p.personId === person.id)
               const portion = item.splitting?.portions?.find((p) => p.personId === person.id)
               return (
@@ -176,6 +230,7 @@ export default function SplittingView({
                     variant={isSelected ? "default" : "outline"}
                     className="flex-grow"
                     onClick={() => togglePerson(person.id)}
+                    style={isSelected ? { backgroundColor: getColorForPerson(index) } : {}}
                   >
                     {person.name}
                   </Button>
@@ -200,7 +255,7 @@ export default function SplittingView({
                         onChange={(e) =>
                           handlePortionChange(person.id, Number.parseInt(e.target.value))
                         }
-                        className="w-20 text-center"
+                        className="w-12 md:w-16 text-center"
                       />
                       <Button
                         variant="outline"
@@ -223,6 +278,11 @@ export default function SplittingView({
               onChange={(e) => setNewPersonName(e.target.value)}
               placeholder="New person name"
               className="flex-grow"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newPersonName.trim()) {
+                  addPerson()
+                }
+              }}
             />
             <Button onClick={addPerson}>Add Person</Button>
           </div>

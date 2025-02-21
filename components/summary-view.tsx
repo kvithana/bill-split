@@ -3,8 +3,16 @@
 import { useState } from "react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Receipt, ReceiptLineItem, ReceiptAdjustment, Person, PersonPortion } from "@/lib/types"
+import type {
+  Receipt,
+  ReceiptLineItem,
+  ReceiptAdjustment,
+  Person,
+  PersonPortion,
+} from "@/lib/types"
 import * as R from "ramda"
+import { getColorForPerson } from "@/lib/colors"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 type Props = {
   receipt: Receipt
@@ -105,14 +113,24 @@ export default function SummaryView({ receipt }: Props) {
         <p className="text-sm font-handwriting mt-2">{receipt.billName}</p>
       </CardHeader>
       <CardContent className="p-4 space-y-4">
-        {receipt.people.map((person: Person) => (
+        {receipt.people.map((person: Person, index) => (
           <div key={person.id} className="border-b border-dashed border-gray-300 pb-2">
             <Button
               variant="ghost"
               className="w-full flex justify-between items-center"
               onClick={() => setExpandedPerson(expandedPerson === person.id ? null : person.id)}
             >
-              <span>{person.name}</span>
+              <div className="flex items-center space-x-2">
+                <Avatar className="w-6 h-6">
+                  <AvatarFallback
+                    className="text-white"
+                    style={{ backgroundColor: getColorForPerson(index) }}
+                  >
+                    {person.name[0]}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{person.name}</span>
+              </div>
               <span>{formatCurrency(calculatePersonTotal(person.id))}</span>
             </Button>
             {expandedPerson === person.id && (

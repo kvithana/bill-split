@@ -57,4 +57,3 @@ export default function RestaurantBill({ businessName, date, items, total }: Bil
     </Card>
   )
 }
-
