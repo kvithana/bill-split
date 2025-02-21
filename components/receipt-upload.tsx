@@ -87,74 +87,69 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
     },
     maxFiles: 1,
     multiple: false,
-    noClick: false,
+    noClick: true,
   })
 
-  const useDemoReceipt = () => {
-    const receipt: Receipt = {
-      id: generateId(),
-      imageUrl: "https://placehold.co/400x600",
-      createdAt: new Date().toISOString(),
-      billName: "Lunch at Burger Place",
-      metadata: {
-        businessName: "BURGER JOINT",
-        totalInCents: 8745, // $87.45
-        dateAsISOString: new Date().toISOString(),
+  const DEMO_RECEIPT: Receipt = {
+    id: generateId(),
+    imageUrl: "https://placehold.co/400x600",
+    createdAt: new Date().toISOString(),
+    billName: "Lunch at Burger Place",
+    metadata: {
+      businessName: "BURGER JOINT",
+      totalInCents: 8745, // $87.45
+      dateAsISOString: new Date().toISOString(),
+    },
+    people: [
+      { id: generateId(), name: "Alice" },
+      { id: generateId(), name: "Bob" },
+      { id: generateId(), name: "Charlie" },
+    ],
+    lineItems: [
+      {
+        id: generateId(),
+        name: "Classic Burger",
+        quantity: 1,
+        totalPriceInCents: 1595,
+        splitting: { portions: [] },
       },
-      people: [
-        { id: generateId(), name: "Alice" },
-        { id: generateId(), name: "Bob" },
-        { id: generateId(), name: "Charlie" },
-      ],
-      lineItems: [
-        {
-          id: generateId(),
-          name: "Classic Burger",
-          quantity: 1,
-          totalPriceInCents: 1595,
-          splitting: { portions: [] },
-        },
-        {
-          id: generateId(),
-          name: "Cheese Fries",
-          quantity: 2,
-          totalPriceInCents: 1190,
-          splitting: { portions: [] },
-        },
-        {
-          id: generateId(),
-          name: "Milkshake",
-          quantity: 3,
-          totalPriceInCents: 2385,
-          splitting: { portions: [] },
-        },
-        {
-          id: generateId(),
-          name: "Onion Rings",
-          quantity: 4,
-          totalPriceInCents: 895,
-          splitting: { portions: [] },
-        },
-      ],
-      adjustments: [
-        {
-          id: generateId(),
-          name: "Credit Card Surcharge (1.5%)",
-          amountInCents: 680,
-          splitting: { method: "equal", portions: [] },
-        },
-        {
-          id: generateId(),
-          name: "Tip (10%)",
-          amountInCents: 2000,
-          splitting: { method: "equal", portions: [] },
-        },
-      ],
-    }
-
-    return receipt
+      {
+        id: generateId(),
+        name: "Cheese Fries",
+        quantity: 2,
+        totalPriceInCents: 1190,
+        splitting: { portions: [] },
+      },
+      {
+        id: generateId(),
+        name: "Milkshake",
+        quantity: 3,
+        totalPriceInCents: 2385,
+        splitting: { portions: [] },
+      },
+      {
+        id: generateId(),
+        name: "Onion Rings",
+        quantity: 4,
+        totalPriceInCents: 895,
+        splitting: { portions: [] },
+      },
+    ],
+    adjustments: [
+      {
+        id: generateId(),
+        name: "Credit Card Surcharge (1.5%)",
+        amountInCents: 680,
+        splitting: { method: "equal", portions: [] },
+      },
+      {
+        id: generateId(),
+        name: "Tip (10%)",
+        amountInCents: 2000,
+        splitting: { method: "equal", portions: [] },
+      },
+    ],
   }
-
   const handleCameraClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -173,19 +168,10 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
 
   const handleBrowseClick = useCallback(
     (e: React.MouseEvent) => {
-      e.preventDefault()
       e.stopPropagation()
-      // Create and trigger a file input directly, similar to camera handling
-      const input = document.createElement("input")
-      input.type = "file"
-      input.accept = "image/*"
-      input.onchange = (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0]
-        if (file) handleFile(file)
-      }
-      input.click()
+      open()
     },
-    [handleFile]
+    [open]
   )
 
   return (
@@ -320,10 +306,9 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
           >
             <button
               onClick={() => {
-                const demoReceipt = useDemoReceipt()
-                addReceipt(demoReceipt)
+                addReceipt(DEMO_RECEIPT)
                 setImportState("done")
-                setTimeout(() => onDone(demoReceipt.id), 1500)
+                setTimeout(() => onDone(DEMO_RECEIPT.id), 1500)
               }}
               className="text-xs text-gray-400 hover:text-gray-600 font-mono underline underline-offset-4"
             >
