@@ -11,9 +11,11 @@ import { toast } from "@/hooks/use-toast"
 
 export default function EditItemsView({
   receipt,
+  setHasEditChanges,
   onSave,
 }: {
   receipt: Receipt
+  setHasEditChanges: (hasEditChanges: boolean) => void
   onSave: (receipt: Receipt) => void
 }) {
   const [editedReceipt, setEditedReceipt] = useState({
@@ -31,6 +33,7 @@ export default function EditItemsView({
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
   const handleMetadataChange = (field: keyof Receipt["metadata"], value: string) => {
+    setHasEditChanges(true)
     setEditedReceipt((prev) => ({
       ...prev,
       metadata: { ...prev.metadata, [field]: value },
@@ -38,6 +41,7 @@ export default function EditItemsView({
   }
 
   const handleItemChange = (id: string, field: keyof ReceiptLineItem, value: string) => {
+    setHasEditChanges(true)
     setEditedReceipt((prev) => ({
       ...prev,
       lineItems: prev.lineItems.map((item) =>
@@ -52,6 +56,7 @@ export default function EditItemsView({
   }
 
   const handleAdjustmentChange = (id: string, field: keyof ReceiptAdjustment, value: string) => {
+    setHasEditChanges(true)
     setEditedReceipt((prev) => ({
       ...prev,
       adjustments: prev.adjustments.map((adj) =>
@@ -66,6 +71,7 @@ export default function EditItemsView({
   }
 
   const addItem = () => {
+    setHasEditChanges(true)
     const newId = Math.max(0, ...editedReceipt.lineItems.map((i) => Number.parseInt(i.id))) + 1
     setEditedReceipt((prev) => ({
       ...prev,
@@ -77,6 +83,7 @@ export default function EditItemsView({
   }
 
   const removeItem = (id: string) => {
+    setHasEditChanges(true)
     setEditedReceipt((prev) => ({
       ...prev,
       lineItems: prev.lineItems.filter((item) => item.id !== id),
@@ -84,6 +91,7 @@ export default function EditItemsView({
   }
 
   const addAdjustment = () => {
+    setHasEditChanges(true)
     const newId = Math.max(0, ...editedReceipt.adjustments.map((a) => Number.parseInt(a.id))) + 1
     setEditedReceipt((prev) => ({
       ...prev,
@@ -100,6 +108,7 @@ export default function EditItemsView({
   }
 
   const removeAdjustment = (id: string) => {
+    setHasEditChanges(true)
     setEditedReceipt((prev) => ({
       ...prev,
       adjustments: prev.adjustments.filter((adj) => adj.id !== id),

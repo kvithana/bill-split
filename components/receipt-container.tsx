@@ -24,6 +24,7 @@ export default function ReceiptContainer({ id }: { id: string }) {
   const [viewMode, setViewMode] = useState<ViewMode>("display")
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [scrollPosition, setScrollPosition] = useState<{ [key: string]: number }>({})
+  const [hasEditChanges, setHasEditChanges] = useState(false)
   const router = useRouter()
 
   const screenId = viewMode === "split" ? viewMode + selectedItemId : viewMode
@@ -72,6 +73,9 @@ export default function ReceiptContainer({ id }: { id: string }) {
         return
       }
     }
+    if (viewMode === "edit") {
+      setHasEditChanges(false)
+    }
 
     // set previous view scroll position
     setScrollPosition((prev) => ({ ...prev, [screenId]: window.scrollY }))
@@ -99,7 +103,13 @@ export default function ReceiptContainer({ id }: { id: string }) {
             onRemovePerson={removePerson}
           />
         )}
-        {viewMode === "edit" && <EditItemsView receipt={receipt} onSave={handleSave} />}
+        {viewMode === "edit" && (
+          <EditItemsView
+            setHasEditChanges={setHasEditChanges}
+            receipt={receipt}
+            onSave={handleSave}
+          />
+        )}
         {viewMode === "split" && selectedItemId && (
           <SplittingView
             receipt={receipt}
@@ -115,6 +125,7 @@ export default function ReceiptContainer({ id }: { id: string }) {
         currentView={viewMode}
         onViewChange={handleViewChange}
         onBack={() => router.push("/")}
+        scrollToBottomButton={hasEditChanges}
       />
     </div>
   )
