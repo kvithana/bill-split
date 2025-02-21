@@ -83,3 +83,33 @@ body {
     -moz-appearance: textfield !important;
   }
 }
+
+.receipt {
+  background-color: #fffdf8;
+  border-radius: 0;
+  position: relative;
+}
+
+.receipt::after,
+.receipt::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #fffdf8 0px,
+    #fffdf8 2px,
+    transparent 2px,
+    transparent 4px
+  );
+}
+
+.receipt::after {
+  bottom: -5px;
+}
+
+.receipt::before {
+  top: -5px;
+}

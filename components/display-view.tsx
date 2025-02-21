@@ -15,8 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { receiptClasses } from "@/lib/receipt-classes"
-import { cn } from "@/lib/utils"
+import { calculateReceiptTotal, formatCurrency } from "@/lib/calculations"
 
 export default function DisplayView({
   receipt,
@@ -63,7 +62,7 @@ export default function DisplayView({
   }
 
   return (
-    <Card className={cn(receiptClasses, "w-full max-w-lg mx-auto bg-[#fffdf8] font-mono text-sm")}>
+    <Card className={"receipt w-full max-w-lg mx-auto font-mono text-sm"}>
       <CardHeader className="text-center border-b border-dashed border-gray-300">
         <h2 className="text-lg font-bold uppercase">{metadata.businessName}</h2>
         <p className="text-xs text-gray-500">{new Date(receipt.createdAt).toLocaleDateString()}</p>
@@ -91,7 +90,7 @@ export default function DisplayView({
                 {!!item.splitting?.portions.length && (
                   <div className="">
                     <span className="text-xs opacity-50">
-                      ${((item.totalPriceInCents || 0) / 100).toFixed(2)}
+                      {formatCurrency(item.totalPriceInCents || 0)}
                     </span>
                   </div>
                 )}
@@ -100,7 +99,7 @@ export default function DisplayView({
                 <AvatarList people={people} portions={item.splitting.portions} />
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span>${((item.totalPriceInCents || 0) / 100).toFixed(2)}</span>
+                  <span>{formatCurrency(item.totalPriceInCents || 0)}</span>
                 </div>
               )}
             </Button>
@@ -125,7 +124,7 @@ export default function DisplayView({
                 </div>
                 {adjustment.splitting.method && (
                   <div className="flex items-center space-x-2 text-xs opacity-50 mt-1">
-                    <span>${((adjustment.amountInCents || 0) / 100).toFixed(2)}</span>
+                    <span>{formatCurrency(adjustment.amountInCents || 0)}</span>
                   </div>
                 )}
               </div>
@@ -186,7 +185,7 @@ export default function DisplayView({
       </div>
       <CardFooter className="flex justify-between items-center border-t border-dashed border-gray-300 p-4 px-6">
         <span className="font-bold">Total</span>
-        <span className="font-bold text-lg">${(metadata.totalInCents / 100).toFixed(2)}</span>
+        <span className="font-bold text-lg">{formatCurrency(calculateReceiptTotal(receipt))}</span>
       </CardFooter>
     </Card>
   )

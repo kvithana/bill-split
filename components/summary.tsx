@@ -3,8 +3,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Link from "next/link"
 import type { Receipt } from "@/lib/types"
 import { getColorForPerson } from "@/lib/colors"
-import { receiptClasses } from "@/lib/receipt-classes"
-import { cn } from "@/lib/utils"
 
 interface SummaryProps {
   receipt: Receipt
@@ -15,7 +13,7 @@ export default function Summary({ receipt }: SummaryProps) {
 
   return (
     <Link href={`/view?id=${receipt.id}`}>
-      <Card className={cn(receiptClasses, "w-full max-w-md mx-auto  font-mono text-sm")}>
+      <Card className={"receipt w-full max-w-md mx-auto  font-mono text-sm"}>
         <CardHeader className="border-b border-dashed border-gray-300 pb-2">
           <div className="flex justify-between items-center">
             <h2 className="text-sm md:text-lg font-bold uppercase">{metadata.businessName}</h2>

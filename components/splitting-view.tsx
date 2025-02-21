@@ -10,8 +10,6 @@ import { Label } from "@/components/ui/label"
 import type { Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
 import * as R from "ramda"
 import { getColorForPerson } from "@/lib/colors"
-import { receiptClasses } from "@/lib/receipt-classes"
-import { cn } from "@/lib/utils"
 
 export default function SplittingView({
   receipt,
@@ -157,7 +155,7 @@ export default function SplittingView({
   const splittingMethod = !isLineItem(item) ? item.splitting?.method : "manual"
 
   return (
-    <Card className={cn(receiptClasses, "w-full max-w-lg mx-auto font-mono text-sm")}>
+    <Card className={"receipt w-full max-w-lg mx-auto font-mono text-sm"}>
       <CardHeader className="text-center border-b border-dashed border-gray-300">
         <h2 className="text-lg font-bold">{item.name}</h2>
         <p className="text-sm">${(total / 100).toFixed(2)}</p>

@@ -1,13 +1,11 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import Link from "next/link"
 import { Plus } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { receiptClasses } from "@/lib/receipt-classes"
 
 export function CreateCard() {
   return (
     <Link href="/create">
-      <Card className={cn(receiptClasses, "w-full max-w-md mx-auto font-mono text-sm group")}>
+      <Card className={"receipt w-full max-w-md mx-auto font-mono text-sm group"}>
         <CardHeader className="border-b border-dashed border-gray-300 pb-2">
           <div className="flex justify-between items-center">
             <h2 className="text-sm md:text-lg font-bold uppercase text-gray-600">New Receipt</h2>

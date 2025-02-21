@@ -1,170 +1,238 @@
 "use client"
 
 import type React from "react"
-
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { useReceiptStore } from "@/data/state"
 import { useAnalyseReceipt } from "@/hooks/use-analyse-receipt"
-import { useIp } from "@/hooks/use-ip"
+import { getIp } from "@/hooks/use-ip"
 import { ipHash } from "@/lib/ip-hash"
 import { upload } from "@vercel/blob/client"
 import { AnimatePresence, motion } from "framer-motion"
-import { CheckCircle, Loader2, Upload } from "lucide-react"
-import { useRef, useState } from "react"
+import { ArrowLeft, Camera, CheckCircle, Upload, X } from "lucide-react"
+import { useState, useCallback } from "react"
+import { toast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+import { useDropzone } from "react-dropzone"
 
-type ImportState = "initial" | "uploading" | "analyzing" | "done"
+type ImportState = "initial" | "uploading" | "analyzing" | "done" | "error"
 
 export default function ReceiptImport({ onDone }: { onDone: (id: string) => void }) {
   const [importState, setImportState] = useState<ImportState>("initial")
   const [previewImage, setPreviewImage] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const { data } = useIp()
-  const [analyse, { data: receipt }] = useAnalyseReceipt()
+  const router = useRouter()
+  const [analyse] = useAnalyseReceipt()
   const addReceipt = useReceiptStore((state) => state.addReceipt)
+  const [success, setSuccess] = useState(false)
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      setImportState("uploading")
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setPreviewImage(e.target?.result as string)
+  const handleFile = useCallback(
+    async (file: File) => {
+      try {
+        if (success) return
+        setImportState("uploading")
+        const reader = new FileReader()
+        reader.onload = (e) => setPreviewImage(e.target?.result as string)
+        reader.readAsDataURL(file)
+
+        const ip = await getIp()
+
+        if (!ip) throw new Error("No IP address found")
+
+        const path = [ipHash(ip), file.name].join("/")
+        const newBlob = await upload(path, file, {
+          access: "public",
+          handleUploadUrl: "/api/receipt/upload",
+        })
+
+        setImportState("analyzing")
+        const response = await analyse(newBlob.url)
+
+        if (!response?.success || !response?.receipt) {
+          throw new Error("Failed to analyze receipt")
+        }
+
+        if (response?.receipt && addReceipt) {
+          addReceipt(response.receipt)
+          setImportState("done")
+          setTimeout(() => onDone(response.receipt!.id), 1500)
+          setSuccess(true)
+        }
+      } catch (error) {
+        setImportState("error")
+        toast({
+          title: "Error processing receipt",
+          description: error instanceof Error ? error.message : "Unknown error occurred",
+          variant: "destructive",
+        })
       }
-      reader.readAsDataURL(file)
+    },
+    [success, setImportState, setPreviewImage, addReceipt, onDone, analyse]
+  )
 
-      const ip = data?.ip
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0]
+    if (file) handleFile(file)
+  }, [])
 
-      if (!ip) {
-        throw new Error("No IP address found")
-      }
-
-      const path = [ipHash(ip), file.name].join("/")
-
-      const newBlob = await upload(path, file, {
-        access: "public",
-        handleUploadUrl: "/api/receipt/upload",
-      })
-
-      setImportState("analyzing")
-
-      const response = await analyse(newBlob.url)
-
-      if (!response?.success || !response?.receipt) {
-        throw new Error("Failed to analyse receipt")
-      }
-
-      if (response?.receipt && addReceipt) {
-        addReceipt(response.receipt)
-      }
-
-      setImportState("done")
-    }
-  }
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      "image/*": [".jpeg", ".jpg", ".png", ".heic"],
+    },
+    maxFiles: 1,
+    multiple: false,
+  })
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-[#fffdf8] font-mono text-sm overflow-hidden">
-      <CardHeader className="text-center border-b border-dashed border-gray-300">
-        <h2 className="text-lg font-bold uppercase">Import Receipt</h2>
-      </CardHeader>
-      <CardContent className="p-4 space-y-4">
-        <AnimatePresence mode="wait">
-          {importState === "initial" && (
-            <motion.div
-              key="initial"
-              initial={{ opacity: 0, y: 0 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-lg"
+    <div className="relative w-full max-w-xl mx-auto px-4">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => router.push("/")}
+        className="absolute -top-16 left-4 font-mono text-gray-500 hover:text-gray-800"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back
+      </Button>
+
+      <AnimatePresence mode="wait">
+        {importState === "initial" && (
+          <motion.div
+            key="initial"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`flex w-full h-full min-h-[500px] border-2 border-dashed rounded-lg relative group transition-colors ${
+              isDragActive ? "border-gray-400 bg-gray-50/80" : "border-gray-200 bg-gray-50/50"
+            }`}
+          >
+            <div
+              {...getRootProps()}
+              className="w-full h-full flex flex-col items-center justify-center"
             >
-              <Upload className="w-12 h-12 text-gray-400 mb-4" />
-              <p className="text-sm text-gray-500 mb-2">Click to upload or drag and drop</p>
-              <Input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileChange}
-                ref={fileInputRef}
+              <input {...getInputProps()} capture="environment" />
+              <Upload
+                className={`w-16 h-16 mb-6 transition-transform ${
+                  isDragActive ? "text-gray-400 scale-110" : "text-gray-300 group-hover:scale-110"
+                }`}
               />
-              <Button onClick={() => fileInputRef.current?.click()}>Select Image</Button>
-            </motion.div>
-          )}
-          {importState === "uploading" && (
-            <motion.div
-              key="uploading"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col items-center justify-center h-64"
-            >
-              <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-              <p className="text-sm text-gray-500">Uploading receipt...</p>
-            </motion.div>
-          )}
-          {importState === "analyzing" && (
-            <motion.div
-              key="analyzing"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="relative h-64"
-            >
-              {previewImage && (
-                <img
-                  src={previewImage || "/placeholder.svg"}
-                  alt="Receipt preview"
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              )}
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center rounded-lg">
-                <motion.div
-                  className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                />
-                <p className="text-white mt-4">Analyzing receipt...</p>
-                <motion.div
-                  className="mt-2 flex space-x-2"
-                  initial={{ scale: 0.8 }}
-                  animate={{ scale: [0.8, 1.2, 0.8] }}
-                  transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
+              <p className="text-sm text-gray-500 font-mono text-center">
+                {isDragActive ? "Drop it! Yum yum." : "Lemme see that receipt"}
+              </p>
+              <div className="flex gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const input = document.createElement("input")
+                    input.type = "file"
+                    input.accept = "image/*"
+                    input.capture = "environment"
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0]
+                      if (file) handleFile(file)
+                    }
+                    input.click()
+                  }}
+                  className="font-mono"
                 >
-                  {[...Array(3)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="w-2 h-2 bg-white rounded-full"
-                      initial={{ opacity: 0.3 }}
-                      animate={{ opacity: [0.3, 1, 0.3] }}
-                      transition={{
-                        duration: 1.5,
-                        delay: i * 0.2,
-                        repeat: Number.POSITIVE_INFINITY,
-                      }}
-                    />
-                  ))}
-                </motion.div>
+                  <Camera className="w-4 h-4 mr-2" />
+                  Camera
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const input = document.createElement("input")
+                    input.type = "file"
+                    input.accept = "image/*"
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0]
+                      if (file) handleFile(file)
+                    }
+                    input.click()
+                  }}
+                  className="font-mono"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Browse
+                </Button>
               </div>
-            </motion.div>
-          )}
-          {importState === "done" && (
-            <motion.div
-              key="done"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col items-center justify-center h-64"
+            </div>
+          </motion.div>
+        )}
+
+        {(importState === "uploading" || importState === "analyzing") && (
+          <motion.div
+            key="processing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="relative min-h-[500px] rounded-lg overflow-hidden"
+          >
+            {previewImage && (
+              <motion.img
+                src={previewImage}
+                alt="Receipt preview"
+                className="w-full h-full object-contain absolute inset-0"
+                initial={{ scale: 1.1, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+              />
+            )}
+            <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center">
+              <div className="h-16 w-16 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
+              <p className="text-sm text-gray-600 font-mono mt-6">
+                {importState === "uploading" ? "Uploading" : "Analyzing"}
+              </p>
+              <div className="flex space-x-2 mt-2">
+                {[...Array(3)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="w-1.5 h-1.5 bg-gray-400 rounded-full"
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1.5, delay: i * 0.2, repeat: Infinity }}
+                  />
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {importState === "done" && (
+          <motion.div
+            key="done"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.1 }}
+            className="flex flex-col items-center justify-center min-h-[500px] rounded-lg bg-green-50"
+          >
+            <CheckCircle className="w-16 h-16 text-green-600 mb-6" />
+            <p className="text-green-600 font-mono">Receipt processed successfully!</p>
+          </motion.div>
+        )}
+
+        {importState === "error" && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center justify-center min-h-[500px] rounded-lg bg-red-50"
+          >
+            <X className="w-16 h-16 text-red-600 mb-6" />
+            <p className="text-red-600 font-mono mb-4">Failed to process receipt</p>
+            <Button
+              variant="outline"
+              onClick={() => setImportState("initial")}
+              className="font-mono"
             >
-              <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
-              <p className="text-lg font-semibold text-green-500 mb-2">Analysis Complete!</p>
-              <Button onClick={() => receipt && onDone(receipt.id)}>View Receipt</Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </CardContent>
-    </Card>
+              Try Again
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }

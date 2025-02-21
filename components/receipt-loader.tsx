@@ -9,7 +9,6 @@ import { Toaster } from "@/components/ui/toaster"
 export function ReceiptLoader() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <Toaster />
       <SuspensedLoader />
     </Suspense>
   )
