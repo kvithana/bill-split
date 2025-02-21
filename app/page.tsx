@@ -5,6 +5,7 @@ import { ReceiptListLoader } from "@/components/receipt-list-loader"
 import { motion, AnimatePresence } from "framer-motion"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { InstallPrompt } from "@/components/install-prompt"
 
 export default function Home() {
   const [isExiting, setIsExiting] = useState(false)
@@ -65,7 +66,9 @@ export default function Home() {
               <ReceiptListLoader onReceiptClick={handleReceiptClick} />
             </div>
           </motion.main>
-          <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center"></footer>
+          <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
+            <InstallPrompt />
+          </footer>
         </motion.div>
       )}
     </AnimatePresence>
