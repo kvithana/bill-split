@@ -151,16 +151,28 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-4">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsVisible(false)}
-        className="hidden md:flex items-center fixed top-4 left-4 bg-[#fffdf8] border border-dashed border-gray-300 rounded-full"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        <span className="text-sm font-mono">Back</span>
-      </Button>
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-4 pt-0">
+      <AnimatePresence>
+        {isVisible && (
+          <motion.div
+            className="flex w-full p-4 pl-0"
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsVisible(false)}
+              className="font-mono text-gray-500 hover:text-gray-800 -ml-2 md:-ml-0"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              BACK
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {isVisible && (
           <motion.div

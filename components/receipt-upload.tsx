@@ -181,23 +181,13 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
 
   return (
     <div className="relative w-full max-w-xl mx-auto px-4 -mt-16">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => router.push("/")}
-        className="absolute -top-16 left-4 font-mono text-gray-500 hover:text-gray-800"
-      >
-        <ArrowLeft className="h-4 w-4 mr-1" />
-        Back
-      </Button>
-
       <AnimatePresence mode="wait">
         {importState === "initial" && (
           <motion.div
             key="initial"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className={`flex w-full h-full min-h-[500px] border-2 border-dashed rounded-lg relative group transition-colors ${
               isDragActive ? "border-gray-400 bg-gray-50/80" : "border-gray-200 bg-gray-50/50"
             }`}
@@ -313,7 +303,12 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
 
       <AnimatePresence>
         {importState === "initial" && !hasReceipts && (
-          <motion.div className="mt-10 flex justify-center">
+          <motion.div
+            className="mt-10 flex justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <button
               onClick={() => {
                 const demoReceipt = useDemoReceipt()

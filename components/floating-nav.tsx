@@ -15,7 +15,6 @@ type FloatingNavProps = {
 export default function FloatingNav({
   currentView,
   onViewChange,
-  onBack,
   scrollToBottomButton,
 }: FloatingNavProps) {
   const [showBackButton, setShowBackButton] = useState(true)
@@ -69,31 +68,6 @@ export default function FloatingNav({
 
   return (
     <AnimatePresence>
-      {!isInputFocused && onBack && showBackButton && (
-        <motion.div
-          key="back-button"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-          className={cn({
-            "fixed left-4": true,
-            "bottom-4": !isStandalone,
-            "bottom-8": isStandalone,
-          })}
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onBack}
-            className="rounded-full w-11 h-11 bg-[#fffdf8] border-dashed border-gray-300 md:hidden"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Back</span>
-          </Button>
-        </motion.div>
-      )}
-
       {!isInputFocused && showSaveButton && (
         <motion.div
           key="save-button"

@@ -132,42 +132,47 @@ export default function DisplayView({
             </Button>
           ))}
         </div>
-        <div className="pt-2 border-t border-dashed border-gray-300">
-          {adjustments.map((adjustment) => (
-            <Button
-              key={adjustment.id}
-              variant="ghost"
-              className="w-full flex justify-between items-start whitespace-normal h-auto hover:none md:hover:bg-accent md:hover:text-accent-foreground"
-              onClick={() => {
-                if (contentRef.current) {
-                  sessionStorage.setItem("scrollPosition", contentRef.current.scrollTop.toString())
-                }
-                onItemSelect(adjustment.id)
-              }}
-            >
-              <div className="flex-1 text-left">
-                <div className="w-full">
-                  <span className="font-bold">{adjustment.name}</span>
-                </div>
-                {adjustment.splitting.method && (
-                  <div className="flex items-center space-x-2 text-xs opacity-50 mt-1">
-                    <span>{formatCurrency(adjustment.amountInCents || 0)}</span>
+        {!!adjustments.length && (
+          <div className="pt-2 border-t border-dashed border-gray-300">
+            {adjustments.map((adjustment) => (
+              <Button
+                key={adjustment.id}
+                variant="ghost"
+                className="w-full flex justify-between items-start whitespace-normal h-auto hover:none md:hover:bg-accent md:hover:text-accent-foreground"
+                onClick={() => {
+                  if (contentRef.current) {
+                    sessionStorage.setItem(
+                      "scrollPosition",
+                      contentRef.current.scrollTop.toString()
+                    )
+                  }
+                  onItemSelect(adjustment.id)
+                }}
+              >
+                <div className="flex-1 text-left">
+                  <div className="w-full">
+                    <span className="font-bold">{adjustment.name}</span>
                   </div>
-                )}
-              </div>
+                  {adjustment.splitting.method && (
+                    <div className="flex items-center space-x-2 text-xs opacity-50 mt-1">
+                      <span>{formatCurrency(adjustment.amountInCents || 0)}</span>
+                    </div>
+                  )}
+                </div>
 
-              {adjustment.splitting.method === "manual" && (
-                <AvatarList people={people} portions={adjustment.splitting.portions || []} />
-              )}
-              {adjustment.splitting.method !== "manual" && (
-                <span className="ml-2 text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded-full flex items-center">
-                  {getSplittingMethodIcon(adjustment.splitting.method)}
-                  <span className="ml-1">{adjustment.splitting.method}</span>
-                </span>
-              )}
-            </Button>
-          ))}
-        </div>
+                {adjustment.splitting.method === "manual" && (
+                  <AvatarList people={people} portions={adjustment.splitting.portions || []} />
+                )}
+                {adjustment.splitting.method !== "manual" && (
+                  <span className="ml-2 text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded-full flex items-center">
+                    {getSplittingMethodIcon(adjustment.splitting.method)}
+                    <span className="ml-1">{adjustment.splitting.method}</span>
+                  </span>
+                )}
+              </Button>
+            ))}
+          </div>
+        )}
       </CardContent>
       <div className="border-t border-dashed border-gray-300 p-4 px-5 md:px-8">
         <h3 className="font-bold mb-2">People</h3>
