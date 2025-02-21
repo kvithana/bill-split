@@ -3,10 +3,11 @@
 import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
 import { Share, Plus, Download, X } from "lucide-react"
+import { useStandalone } from "../hooks/use-standalone"
 
 export function InstallPrompt() {
   const [isIOS, setIsIOS] = useState(false)
-  const [isStandalone, setIsStandalone] = useState(false)
+  const isStandalone = useStandalone()
   const [isDismissed, setIsDismissed] = useState(true) // Start hidden until we check localStorage
 
   useEffect(() => {
@@ -19,14 +20,7 @@ export function InstallPrompt() {
       /iPad|iPhone|iPod/.test(navigator.userAgent) &&
       !(window as unknown as { MSStream: unknown }).MSStream
 
-    // Safari detection
-    const safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
-
     setIsIOS(iOS)
-    setIsStandalone(
-      window.matchMedia("(display-mode: standalone)").matches ||
-        (window.navigator as unknown as { standalone: boolean }).standalone === true
-    )
   }, [])
 
   const handleDismiss = () => {
@@ -69,7 +63,7 @@ export function InstallPrompt() {
           <span>then</span>
           <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-md border border-gray-200">
             <Plus className="w-3 h-3" />
-            <span>Add to Home</span>
+            <span>Add to Home in Safari</span>
           </div>
         </div>
       ) : (

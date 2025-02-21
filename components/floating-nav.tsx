@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button"
 import { AnimatePresence, motion } from "framer-motion"
 import { ArrowLeft, Check, Edit, FileText, Scissors } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useStandalone } from "@/hooks/use-standalone"
+import { cn } from "@/lib/utils"
 
 type FloatingNavProps = {
   currentView: "display" | "edit" | "summary" | "split"
@@ -19,6 +21,7 @@ export default function FloatingNav({
   const [showBackButton, setShowBackButton] = useState(true)
   const [showSaveButton, setShowSaveButton] = useState(false)
   const [isInputFocused, setIsInputFocused] = useState(false)
+  const isStandalone = useStandalone()
 
   useEffect(() => {
     // Handle scroll position for back/save buttons
@@ -73,7 +76,11 @@ export default function FloatingNav({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
-          className="fixed bottom-4 left-4"
+          className={cn({
+            "fixed left-4": true,
+            "bottom-4": !isStandalone,
+            "bottom-8": isStandalone,
+          })}
         >
           <Button
             variant="outline"
@@ -94,7 +101,11 @@ export default function FloatingNav({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
-          className="fixed bottom-4 right-4 md:hidden"
+          className={cn({
+            "fixed right-4 md:hidden": true,
+            "bottom-4": !isStandalone,
+            "bottom-8": isStandalone,
+          })}
         >
           <Button
             variant="default"
@@ -115,7 +126,12 @@ export default function FloatingNav({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
-          className="fixed bottom-4 transform -translate-x-1/2 bg-[#fffdf8] rounded-full shadow-lg p-2 flex space-x-2 border border-dashed border-gray-300"
+          className={cn({
+            "fixed left-1/2 transform -translate-x-1/2 bg-[#fffdf8] rounded-full shadow-lg p-2 flex space-x-2 border border-dashed border-gray-300":
+              true,
+            "bottom-4": !isStandalone,
+            "bottom-8": isStandalone,
+          })}
         >
           <Button
             variant={currentView === "edit" ? "default" : "ghost"}

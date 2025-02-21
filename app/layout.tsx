@@ -80,7 +80,7 @@ export default function RootLayout({
         <meta name="description" content="Split bills with friends. No fuss." />
         <link rel="shortcut icon" href="/favicon.ico" />
         <link rel="mask-icon" href="/icons/mask-icon.svg" color="#000000" />
-        <meta name="theme-color" content="#000000" />
+        <meta name="theme-color" content="#f3f4f6" />
         <link rel="apple-touch-icon" href="/icons/touch-icon-iphone.png" />
         <link rel="apple-touch-icon" sizes="152x152" href="/icons/touch-icon-ipad.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/touch-icon-iphone-retina.png" />
