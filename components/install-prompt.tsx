@@ -7,16 +7,27 @@ import { Share, Plus, Download } from "lucide-react"
 export function InstallPrompt() {
   const [isIOS, setIsIOS] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
+  const [isSafari, setIsSafari] = useState(false)
 
   useEffect(() => {
-    setIsIOS(
+    // Improved iOS detection
+    const iOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-        !(window as unknown as { MSStream: unknown }).MSStream
+      !(window as unknown as { MSStream: unknown }).MSStream
+
+    // Safari detection
+    const safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+
+    setIsIOS(iOS)
+    setIsSafari(safari)
+    setIsStandalone(
+      window.matchMedia("(display-mode: standalone)").matches ||
+        (window.navigator as any).standalone === true
     )
-    setIsStandalone(window.matchMedia("(display-mode: standalone)").matches)
   }, [])
 
-  if (isStandalone) {
+  // Only show for iOS Safari and when not in standalone mode
+  if (isStandalone || (!isIOS && !isSafari)) {
     return null
   }
 
