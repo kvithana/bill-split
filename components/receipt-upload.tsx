@@ -8,7 +8,7 @@ import { getIp } from "@/hooks/use-ip"
 import { ipHash } from "@/lib/ip-hash"
 import { upload } from "@vercel/blob/client"
 import { AnimatePresence, motion } from "framer-motion"
-import { Camera, CheckCircle, ScanEye, Upload, X } from "lucide-react"
+import { Camera, CheckCircle, ImageUp, Upload, X } from "lucide-react"
 import { useState, useCallback } from "react"
 import { toast } from "@/hooks/use-toast"
 import { useDropzone } from "react-dropzone"
@@ -195,7 +195,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
                   isDragActive ? "text-gray-400 scale-110" : "text-gray-300 group-hover:scale-110"
                 }`}
               />
-              <ScanEye className="md:hidden w-16 h-16 mb-6 text-gray-300 " />
+              <ImageUp className="md:hidden w-16 h-16 mb-6 text-gray-300 " />
               <p className="text-sm text-gray-500 font-mono text-center">
                 {isDragActive ? "Drop it! Yum yum." : "Drop in a receipt to get started"}
               </p>
