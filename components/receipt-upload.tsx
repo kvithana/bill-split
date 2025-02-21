@@ -87,7 +87,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
     },
     maxFiles: 1,
     multiple: false,
-    noClick: true,
+    noClick: false,
   })
 
   const useDemoReceipt = () => {
@@ -173,10 +173,19 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
 
   const handleBrowseClick = useCallback(
     (e: React.MouseEvent) => {
+      e.preventDefault()
       e.stopPropagation()
-      open()
+      // Create and trigger a file input directly, similar to camera handling
+      const input = document.createElement("input")
+      input.type = "file"
+      input.accept = "image/*"
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (file) handleFile(file)
+      }
+      input.click()
     },
-    [open]
+    [handleFile]
   )
 
   return (
