@@ -80,14 +80,14 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
   })
 
   return (
-    <div className="relative w-full max-w-xl mx-auto px-4">
+    <div className="relative w-full max-w-xl mx-auto px-4 -mt-16">
       <Button
         variant="ghost"
         size="sm"
         onClick={() => router.push("/")}
         className="absolute -top-16 left-4 font-mono text-gray-500 hover:text-gray-800"
       >
-        <ArrowLeft className="h-4 w-4 mr-2" />
+        <ArrowLeft className="h-4 w-4 mr-1" />
         Back
       </Button>
 
