@@ -98,6 +98,7 @@ export default function RootLayout({
         <meta property="og:site_name" content="Split // it" />
         <meta property="og:url" content="https://split.kal.lol" />
         <meta property="og:image" content="/og_image.png" />
+        <Analytics />
       </Head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}

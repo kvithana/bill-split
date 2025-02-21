@@ -14,12 +14,8 @@
   ],
   "orientation": "portrait",
   "display": "standalone",
-  "dir": "auto",
-  "lang": "en-GB",
   "name": "Split // it",
   "short_name": "Split",
   "start_url": "/",
-  "description": "Split expenses with friends",
-  "categories": ["finance", "utilities"],
-  "scope": "/"
+  "description": "Split expenses with friends"
 }
