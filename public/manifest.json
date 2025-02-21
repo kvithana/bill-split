@@ -18,8 +18,8 @@
   "lang": "en-GB",
   "name": "Split // it",
   "short_name": "Split",
-  "start_url": "https://split.kal.lol",
+  "start_url": "/",
   "description": "Split expenses with friends",
   "categories": ["finance", "utilities"],
-  "scope": "/"
+  "scope": "https://split.kal.lol/"
 }
