@@ -1,3 +1,4 @@
+"use client"
 import { motion } from "framer-motion"
 import { Receipt } from "lucide-react"
 
@@ -20,7 +21,7 @@ export function EmptyState({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ delay }}
-      className="flex flex-col items-center justify-center p-8 text-center w-full h-full min-h-screen"
+      className="flex flex-col items-center justify-center text-center w-full h-full"
     >
       <div className="rounded-full bg-gray-100 p-4 mb-4">{icon}</div>
       <h3 className="text-lg font-semibold text-gray-900 mb-1 font-mono">{title}</h3>
