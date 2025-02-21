@@ -11,7 +11,9 @@ import useStore from "@/hooks/use-store"
 import { generateId } from "@/lib/id"
 import FloatingNav from "./floating-nav"
 import { toast } from "@/hooks/use-toast"
-
+import { ArrowLeft } from "lucide-react"
+import { Button } from "./ui/button"
+import { useRouter } from "next/navigation"
 type ViewMode = "display" | "edit" | "split" | "summary"
 
 export default function ReceiptContainer({ id }: { id: string }) {
@@ -22,11 +24,12 @@ export default function ReceiptContainer({ id }: { id: string }) {
   const [viewMode, setViewMode] = useState<ViewMode>("display")
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [scrollPosition, setScrollPosition] = useState<{ [key: string]: number }>({})
+  const router = useRouter()
 
   const screenId = viewMode === "split" ? viewMode + selectedItemId : viewMode
 
   useEffect(() => {
-    if (scrollPosition[screenId]) {
+    if (screenId === "display" && scrollPosition[screenId]) {
       window.scrollTo(0, scrollPosition[screenId])
     }
   }, [screenId])
@@ -78,6 +81,15 @@ export default function ReceiptContainer({ id }: { id: string }) {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-4">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => router.push("/")}
+        className="hidden md:flex items-center fixed top-4 left-4 bg-[#fffdf8] border border-dashed border-gray-300 rounded-full"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        <span className="text-sm font-mono">Back</span>
+      </Button>
       <div className="flex-1 w-full pb-16">
         {viewMode === "display" && (
           <DisplayView
@@ -99,7 +111,11 @@ export default function ReceiptContainer({ id }: { id: string }) {
         )}
         {viewMode === "summary" && <SummaryView receipt={receipt} />}
       </div>
-      <FloatingNav currentView={viewMode} onViewChange={handleViewChange} />
+      <FloatingNav
+        currentView={viewMode}
+        onViewChange={handleViewChange}
+        onBack={() => router.push("/")}
+      />
     </div>
   )
 }

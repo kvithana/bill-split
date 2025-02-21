@@ -13,6 +13,7 @@ const PersonPortionSchema = z.object({
 const ReceiptMetadataSchema = z.object({
   businessName: z.string().optional(),
   totalInCents: z.number(),
+  dateAsISOString: z.string().optional(),
 })
 
 const ReceiptLineItemSchema = z.object({

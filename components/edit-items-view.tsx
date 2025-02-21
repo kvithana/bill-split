@@ -8,6 +8,8 @@ import { Plus, X } from "lucide-react"
 import type { Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
+import { receiptClasses } from "@/lib/receipt-classes"
+import { cn } from "@/lib/utils"
 
 export default function EditItemsView({
   receipt,
@@ -174,7 +176,7 @@ export default function EditItemsView({
   }
 
   return (
-    <Card className="w-full max-w-lg mx-auto bg-[#fffdf8] font-mono text-sm">
+    <Card className={cn(receiptClasses, "w-full max-w-lg mx-auto font-mono text-sm")}>
       <CardHeader className="text-center border-b border-dashed border-gray-300">
         <Input
           value={editedReceipt.metadata.businessName}

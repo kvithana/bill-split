@@ -14,6 +14,8 @@ import * as R from "ramda"
 import { getColorForPerson } from "@/lib/colors"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ChevronDown, ChevronUp } from "lucide-react"
+import { receiptClasses } from "@/lib/receipt-classes"
+import { cn } from "@/lib/utils"
 
 type Props = {
   receipt: Receipt
@@ -107,7 +109,7 @@ export default function SummaryView({ receipt }: Props) {
   const formatCurrency = (cents: number): string => `$${(cents / 100).toFixed(2)}`
 
   return (
-    <Card className="w-full max-w-lg mx-auto bg-[#fffdf8] font-mono text-sm">
+    <Card className={cn(receiptClasses, "w-full max-w-lg mx-auto font-mono text-sm")}>
       <CardHeader className="text-center border-b border-dashed border-gray-300">
         <h2 className="text-lg font-bold uppercase">{receipt.metadata.businessName}</h2>
         <p className="text-xs text-gray-500">{new Date(receipt.createdAt).toLocaleDateString()}</p>

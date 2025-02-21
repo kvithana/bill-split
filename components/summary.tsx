@@ -1,7 +1,10 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Link from "next/link"
-import { Receipt } from "@/lib/types"
+import type { Receipt } from "@/lib/types"
+import { getColorForPerson } from "@/lib/colors"
+import { receiptClasses } from "@/lib/receipt-classes"
+import { cn } from "@/lib/utils"
 
 interface SummaryProps {
   receipt: Receipt
@@ -12,7 +15,7 @@ export default function Summary({ receipt }: SummaryProps) {
 
   return (
     <Link href={`/view?id=${receipt.id}`}>
-      <Card className="w-full max-w-md mx-auto bg-gray-50 font-mono text-sm shadow-none rounded-none hover:shadow-md transition-shadow">
+      <Card className={cn(receiptClasses, "w-full max-w-md mx-auto  font-mono text-sm")}>
         <CardHeader className="border-b border-dashed border-gray-300 pb-2">
           <div className="flex justify-between items-center">
             <h2 className="text-sm md:text-lg font-bold uppercase">{metadata.businessName}</h2>
@@ -24,13 +27,18 @@ export default function Summary({ receipt }: SummaryProps) {
         </CardHeader>
         <CardContent className="pt-2">
           <p className="text-xs font-handwriting mb-2">{billName}</p>
-          <div className="flex -space-x-2 overflow-hidden">
-            {people.map((person) => (
+          <div className="flex -space-x-0.5 overflow-hidden">
+            {people.map((person, index) => (
               <Avatar
                 key={person.id}
-                className="inline-block h-4 w-4 md:h-6 md:w-6 rounded-full ring-2 ring-white"
+                className="inline-block h-5 w-5 md:h-6 md:w-6 rounded-full ring-2 ring-white"
               >
-                <AvatarFallback>{person.name[0]}</AvatarFallback>
+                <AvatarFallback
+                  className="text-xs text-white"
+                  style={{ backgroundColor: getColorForPerson(index) }}
+                >
+                  {person.name[0]}
+                </AvatarFallback>
               </Avatar>
             ))}
           </div>
