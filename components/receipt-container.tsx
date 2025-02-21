@@ -16,6 +16,9 @@ import { Button } from "./ui/button"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { EmptyState } from "./empty-state"
+import { cn } from "@/lib/utils"
+import { useStandalone } from "@/hooks/use-standalone"
+
 type ViewMode = "display" | "edit" | "split" | "summary"
 
 const slideVariants = {
@@ -53,6 +56,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   const [showNav, setShowNav] = useState(false)
   const [isReceiptMounted, setIsReceiptMounted] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
+  const isStandalone = useStandalone()
 
   const screenId = viewMode === "split" ? viewMode + selectedItemId : viewMode
 
@@ -161,7 +165,10 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
         {isVisible && (
           <motion.div
             id="receipt-container"
-            className="flex-1 w-full pb-16"
+            className={cn("flex-1 w-full ", {
+              "pb-32": isStandalone,
+              "pb-16": !isStandalone,
+            })}
             variants={slideVariants}
             initial="initial"
             animate="animate"
