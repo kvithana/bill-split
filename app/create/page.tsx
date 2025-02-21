@@ -9,7 +9,7 @@ export default function CreatePage() {
   return (
     <StyledErrorBoundary>
       <div className="flex flex-col items-center justify-center h-screen">
-        <ReceiptImport onDone={(id) => (window.location.href = "/view?id=" + id + "&s=1")} />
+        <ReceiptImport onDone={(id) => router.push("/view?id=" + id + "&s=1")} />
       </div>
     </StyledErrorBoundary>
   )

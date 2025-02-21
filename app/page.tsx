@@ -23,14 +23,14 @@ export default function Home() {
   const handleCreate = () => {
     setIsExiting(true)
     setTimeout(() => {
-      window.location.href = "/create"
+      router.push("/create")
     }, 500)
   }
 
   const handleReceiptClick = (id: string) => {
     setIsExiting(true)
     setTimeout(() => {
-      window.location.href = `/view?id=${id}`
+      router.push(`/view?id=${id}`)
     }, 500)
   }
 
