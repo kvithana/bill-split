@@ -14,13 +14,15 @@ import { getColorForPerson } from "@/lib/colors"
 export default function SplittingView({
   receipt,
   itemId,
-  onSave,
+  onUpdateLineItems,
+  onUpdateAdjustments,
   onBack,
   onAddPerson,
 }: {
   receipt: Receipt
   itemId: string
-  onSave: (editedReceipt: Receipt) => void
+  onUpdateLineItems: (lineItems: ReceiptLineItem[]) => void
+  onUpdateAdjustments: (adjustments: ReceiptAdjustment[]) => void
   onBack: () => void
   onAddPerson: (name: string) => void
 }) {
@@ -99,6 +101,14 @@ export default function SplittingView({
         isLineItem(item) ? "lineItems" : "adjustments"
       ].map((i) => (i.id === itemId ? updatedItem : i)),
     }))
+  }
+
+  const onSave = () => {
+    if (isLineItem(item)) {
+      onUpdateLineItems(editedReceipt.lineItems)
+    } else {
+      onUpdateAdjustments(editedReceipt.adjustments)
+    }
   }
 
   const addPerson = () => {
@@ -292,7 +302,7 @@ export default function SplittingView({
         <Button variant="outline" onClick={onBack}>
           Back
         </Button>
-        <Button onClick={() => onSave(editedReceipt)}>Save Changes</Button>
+        <Button onClick={onSave}>Save Changes</Button>
       </CardFooter>
     </Card>
   )

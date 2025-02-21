@@ -5,7 +5,7 @@ import DisplayView from "./display-view"
 import EditItemsView from "./edit-items-view"
 import SplittingView from "./splitting-view"
 import SummaryView from "./summary-view"
-import { Receipt, ReceiptSchema } from "@/lib/types"
+import { Receipt, ReceiptAdjustment, ReceiptLineItem, ReceiptSchema } from "@/lib/types"
 import { useReceiptStore } from "@/data/state"
 import useStore from "@/hooks/use-store"
 import { generateId } from "@/lib/id"
@@ -22,6 +22,8 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   const [receipt] = useStore((state) => state.receipts[id])
   const addPersonAction = useReceiptStore((state) => state.addPerson)
   const removePersonAction = useReceiptStore((state) => state.removePerson)
+  const updateLineItemsAction = useReceiptStore((state) => state.updateLineItems)
+  const updateAdjustmentsAction = useReceiptStore((state) => state.updateAdjustments)
   const setReceipt = useReceiptStore((state) => state.updateReceipt)
   const [viewMode, setViewMode] = useState<ViewMode>("display")
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
@@ -75,6 +77,16 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
 
   const removePerson = (personId: string) => {
     removePersonAction(id, personId)
+  }
+
+  const updateLineItems = (lineItems: ReceiptLineItem[]) => {
+    updateLineItemsAction(id, lineItems)
+    handleViewChange("display")
+  }
+
+  const updateAdjustments = (adjustments: ReceiptAdjustment[]) => {
+    updateAdjustmentsAction(id, adjustments)
+    handleViewChange("display")
   }
 
   if (!receipt) {
@@ -164,7 +176,8 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
               <SplittingView
                 receipt={receipt}
                 itemId={selectedItemId}
-                onSave={handleSave}
+                onUpdateLineItems={updateLineItems}
+                onUpdateAdjustments={updateAdjustments}
                 onBack={() => handleViewChange("display")}
                 onAddPerson={addPerson}
               />

@@ -70,32 +70,13 @@ export const receipt = {
     )
   },
 
-  removeLineItem: (set: SetFn, receiptId: string) => (lineItemId: string) => {
-    updateReceiptProperty<ReceiptLineItem>(set, receiptId, "lineItems", (current) =>
-      current.filter((item) => item.id !== lineItemId)
-    )
+  updateLineItems: (set: SetFn, receiptId: string) => (lineItems: ReceiptLineItem[]) => {
+    updateReceiptProperty<ReceiptLineItem>(set, receiptId, "lineItems", () => lineItems)
   },
 
-  removeAdjustment: (set: SetFn, receiptId: string) => (adjustmentId: string) => {
-    updateReceiptProperty<ReceiptAdjustment>(set, receiptId, "adjustments", (current) =>
-      current.filter((adj) => adj.id !== adjustmentId)
-    )
+  updateAdjustments: (set: SetFn, receiptId: string) => (adjustments: ReceiptAdjustment[]) => {
+    updateReceiptProperty<ReceiptAdjustment>(set, receiptId, "adjustments", () => adjustments)
   },
-
-  updateLineItem:
-    (set: SetFn, receiptId: string) => (lineItemId: string, updates: Partial<ReceiptLineItem>) => {
-      updateReceiptProperty<ReceiptLineItem>(set, receiptId, "lineItems", (current) =>
-        current.map((item) => (item.id === lineItemId ? { ...item, ...updates } : item))
-      )
-    },
-
-  updateAdjustment:
-    (set: SetFn, receiptId: string) =>
-    (adjustmentId: string, updates: Partial<ReceiptAdjustment>) => {
-      updateReceiptProperty<ReceiptAdjustment>(set, receiptId, "adjustments", (current) =>
-        current.map((adj) => (adj.id === adjustmentId ? { ...adj, ...updates } : adj))
-      )
-    },
 
   updatePerson: (set: SetFn, receiptId: string) => (personId: string, updates: Partial<Person>) => {
     updateReceiptProperty<Person>(set, receiptId, "people", (current) =>
