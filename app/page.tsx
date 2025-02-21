@@ -65,8 +65,10 @@ export default function Home() {
               <ReceiptListLoader onReceiptClick={handleReceiptClick} />
             </div>
           </motion.main>
-          <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
+          <footer className="row-start-3 flex flex-col gap-6 flex-wrap items-center justify-center">
             <InstallPrompt />
+
+            <p className="text-xs text-gray-400 font-mono">Build {process.env.COMMIT_HASH}</p>
           </footer>
         </motion.div>
       )}

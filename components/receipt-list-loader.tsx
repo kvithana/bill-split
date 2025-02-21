@@ -51,14 +51,12 @@ export function ReceiptListLoader({ onReceiptClick }: { onReceiptClick: (id: str
     >
       <AnimatePresence mode="popLayout">
         {sorted.map((receipt) => (
-          <Link href={`/view?id=${receipt.id}`} key={receipt.id}>
-            <Summary
-              key={receipt.id}
-              receipt={receipt}
-              onDelete={() => deleteReceipt(receipt)}
-              onClick={() => {}}
-            />
-          </Link>
+          <Summary
+            key={receipt.id}
+            receipt={receipt}
+            onDelete={() => deleteReceipt(receipt)}
+            onClick={() => onReceiptClick(receipt.id!)}
+          />
         ))}
       </AnimatePresence>
     </motion.div>

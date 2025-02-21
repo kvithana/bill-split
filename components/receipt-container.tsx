@@ -18,6 +18,26 @@ import { motion, AnimatePresence } from "framer-motion"
 import { EmptyState } from "./empty-state"
 type ViewMode = "display" | "edit" | "split" | "summary"
 
+const slideVariants = {
+  initial: {
+    y: "100%",
+  },
+  animate: (fromScan: boolean) => ({
+    y: 0,
+    transition: {
+      duration: fromScan ? 5 : 1,
+      ease: "easeOut",
+    },
+  }),
+  exit: {
+    y: "100%",
+    transition: {
+      duration: 0.5,
+      ease: "easeOut",
+    },
+  },
+}
+
 export default function ReceiptContainer({ id, fromScan }: { id: string; fromScan: boolean }) {
   const [receipt] = useStore((state) => state.receipts[id])
   const addPersonAction = useReceiptStore((state) => state.addPerson)
@@ -142,19 +162,11 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
           <motion.div
             id="receipt-container"
             className="flex-1 w-full pb-16"
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{
-              animate: {
-                duration: fromScan ? 5 : 0.5,
-                ease: "easeOut",
-              },
-              exit: {
-                duration: 0.5,
-                ease: "easeOut",
-              },
-            }}
+            variants={slideVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            custom={fromScan}
             onAnimationComplete={() => setIsReceiptMounted(true)}
           >
             {viewMode === "display" && (
