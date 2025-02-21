@@ -40,7 +40,7 @@ export default function Home() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="flex flex-col items-center justify-items-center min-h-screen p-6 pb-20 gap-16 font-[family-name:var(--font-geist-sans)]"
+          className="flex flex-col items-center min-h-screen p-6 md:pb-20 gap-8 font-[family-name:var(--font-geist-sans)]"
         >
           <motion.header
             initial={{ opacity: 0, y: hasSeenIntro ? 0 : -20 }}
@@ -58,16 +58,15 @@ export default function Home() {
             initial={{ opacity: 0, y: hasSeenIntro ? 0 : 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: hasSeenIntro ? 0.3 : 0.8, delay: hasSeenIntro ? 0 : 0.4 }}
-            className="flex flex-col gap-4 w-full"
+            className="flex flex-col gap-4 w-full flex-1"
           >
             <div className="flex flex-col gap-4 w-full">
               <CreateCard onCreate={handleCreate} />
               <ReceiptListLoader onReceiptClick={handleReceiptClick} />
             </div>
           </motion.main>
-          <footer className="row-start-3 flex flex-col gap-6 flex-wrap items-center justify-center">
+          <footer className="flex flex-col gap-6 flex-wrap items-center justify-center mt-auto">
             <InstallPrompt />
-
             <p className="text-xs text-gray-400 font-mono">Build {process.env.COMMIT_HASH}</p>
           </footer>
         </motion.div>
