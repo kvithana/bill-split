@@ -8,64 +8,69 @@ import { getIp } from "@/hooks/use-ip"
 import { ipHash } from "@/lib/ip-hash"
 import { upload } from "@vercel/blob/client"
 import { AnimatePresence, motion } from "framer-motion"
-import { ArrowLeft, Camera, CheckCircle, Upload, X } from "lucide-react"
-import { useState, useCallback, useRef } from "react"
+import { ArrowLeft, Camera, CheckCircle, ScanEye, Upload, X } from "lucide-react"
+import { useState, useCallback } from "react"
 import { toast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { useDropzone } from "react-dropzone"
+import { Receipt } from "@/lib/types"
+import { generateId } from "@/lib/id"
+import useStore from "@/hooks/use-store"
 
 type ImportState = "initial" | "uploading" | "analyzing" | "done" | "error"
 
 export default function ReceiptImport({ onDone }: { onDone: (id: string) => void }) {
   const [importState, setImportState] = useState<ImportState>("initial")
   const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [receipts] = useStore((state) => state.receipts)
   const router = useRouter()
   const [analyse] = useAnalyseReceipt()
   const addReceipt = useReceiptStore((state) => state.addReceipt)
-  const [success, setSuccess] = useState(false)
+  const hasReceipts = !!Object.keys(receipts ?? {}).length
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const handleFile = useCallback(
+    async (file: File) => {
+      try {
+        setImportState("uploading")
 
-  const handleFile = async (file: File) => {
-    try {
-      if (success) return
-      setImportState("uploading")
-      const reader = new FileReader()
-      reader.onload = (e) => setPreviewImage(e.target?.result as string)
-      reader.readAsDataURL(file)
+        // Create preview
+        const reader = new FileReader()
+        reader.onload = (e) => setPreviewImage(e.target?.result as string)
+        reader.readAsDataURL(file)
 
-      const ip = await getIp()
+        // Upload file
+        const ip = await getIp()
+        if (!ip) throw new Error("No IP address found")
 
-      if (!ip) throw new Error("No IP address found")
+        const path = [ipHash(ip), file.name].join("/")
+        const newBlob = await upload(path, file, {
+          access: "public",
+          handleUploadUrl: "/api/receipt/upload",
+        })
 
-      const path = [ipHash(ip), file.name].join("/")
-      const newBlob = await upload(path, file, {
-        access: "public",
-        handleUploadUrl: "/api/receipt/upload",
-      })
+        // Analyze receipt
+        setImportState("analyzing")
+        const response = await analyse(newBlob.url)
 
-      setImportState("analyzing")
-      const response = await analyse(newBlob.url)
+        if (!response?.success || !response?.receipt) {
+          throw new Error(response?.error ?? "Failed to analyze receipt")
+        }
 
-      if (!response?.success || !response?.receipt) {
-        throw new Error(response?.error ?? "Failed to analyze receipt")
-      }
-
-      if (response?.receipt && addReceipt) {
+        // Success
         addReceipt(response.receipt)
         setImportState("done")
         setTimeout(() => onDone(response.receipt!.id), 1500)
-        setSuccess(true)
+      } catch (error) {
+        setImportState("error")
+        toast({
+          title: "Error processing receipt",
+          description: error instanceof Error ? error.message : "Unknown error occurred",
+          variant: "destructive",
+        })
       }
-    } catch (error) {
-      setImportState("error")
-      toast({
-        title: "Error processing receipt",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
-        variant: "destructive",
-      })
-    }
-  }
+    },
+    [analyse, addReceipt, onDone]
+  )
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -75,7 +80,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
     [handleFile]
   )
 
-  const { getRootProps, getInputProps, open, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: {
       "image/*": [".jpeg", ".jpg", ".png", ".heic"],
@@ -85,13 +90,94 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
     noClick: true,
   })
 
-  const openFilePicker = (useCamera: boolean) => (e: React.MouseEvent) => {
-    if (useCamera && fileInputRef.current) {
-      e.stopPropagation()
-      fileInputRef.current.capture = "environment"
-      fileInputRef.current.click()
+  const useDemoReceipt = () => {
+    const receipt: Receipt = {
+      id: generateId(),
+      imageUrl: "https://placehold.co/400x600",
+      createdAt: new Date().toISOString(),
+      billName: "Lunch at Burger Place",
+      metadata: {
+        businessName: "BURGER JOINT",
+        totalInCents: 8745, // $87.45
+        dateAsISOString: new Date().toISOString(),
+      },
+      people: [
+        { id: generateId(), name: "Alice" },
+        { id: generateId(), name: "Bob" },
+        { id: generateId(), name: "Charlie" },
+      ],
+      lineItems: [
+        {
+          id: generateId(),
+          name: "Classic Burger",
+          quantity: 1,
+          totalPriceInCents: 1595,
+          splitting: { portions: [] },
+        },
+        {
+          id: generateId(),
+          name: "Cheese Fries",
+          quantity: 2,
+          totalPriceInCents: 1190,
+          splitting: { portions: [] },
+        },
+        {
+          id: generateId(),
+          name: "Milkshake",
+          quantity: 3,
+          totalPriceInCents: 2385,
+          splitting: { portions: [] },
+        },
+        {
+          id: generateId(),
+          name: "Onion Rings",
+          quantity: 4,
+          totalPriceInCents: 895,
+          splitting: { portions: [] },
+        },
+      ],
+      adjustments: [
+        {
+          id: generateId(),
+          name: "Credit Card Surcharge (1.5%)",
+          amountInCents: 680,
+          splitting: { method: "equal", portions: [] },
+        },
+        {
+          id: generateId(),
+          name: "Tip (10%)",
+          amountInCents: 2000,
+          splitting: { method: "equal", portions: [] },
+        },
+      ],
     }
+
+    return receipt
   }
+
+  const handleCameraClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      const input = document.createElement("input")
+      input.type = "file"
+      input.accept = "image/*"
+      input.capture = "environment"
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (file) handleFile(file)
+      }
+      input.click()
+    },
+    [handleFile]
+  )
+
+  const handleBrowseClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      open()
+    },
+    [open]
+  )
 
   return (
     <div className="relative w-full max-w-xl mx-auto px-4 -mt-16">
@@ -120,21 +206,22 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
               {...getRootProps()}
               className="w-full h-full flex flex-col items-center justify-center"
             >
-              <input {...getInputProps()} ref={fileInputRef} />
+              <input {...getInputProps()} />
               <Upload
-                className={`w-16 h-16 mb-6 transition-transform ${
+                className={`md:block hidden w-16 h-16 mb-6 transition-transform ${
                   isDragActive ? "text-gray-400 scale-110" : "text-gray-300 group-hover:scale-110"
                 }`}
               />
+              <ScanEye className="md:hidden w-16 h-16 mb-6 text-gray-300 " />
               <p className="text-sm text-gray-500 font-mono text-center">
-                {isDragActive ? "Drop it! Yum yum." : "Lemme see that receipt"}
+                {isDragActive ? "Drop it! Yum yum." : "Drop in a receipt to get started"}
               </p>
               <div className="flex gap-2 mt-4">
                 <Button
                   variant="outline"
                   size="sm"
                   type="button"
-                  onClick={openFilePicker(true)}
+                  onClick={handleCameraClick}
                   className="font-mono"
                 >
                   <Camera className="w-4 h-4 mr-2" />
@@ -144,7 +231,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
                   variant="outline"
                   size="sm"
                   type="button"
-                  onClick={openFilePicker(false)}
+                  onClick={handleBrowseClick}
                   className="font-mono"
                 >
                   <Upload className="w-4 h-4 mr-2" />
@@ -220,6 +307,24 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
             >
               Try Again
             </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {importState === "initial" && !hasReceipts && (
+          <motion.div className="mt-10 flex justify-center">
+            <button
+              onClick={() => {
+                const demoReceipt = useDemoReceipt()
+                addReceipt(demoReceipt)
+                setImportState("done")
+                setTimeout(() => onDone(demoReceipt.id), 1500)
+              }}
+              className="text-xs text-gray-400 hover:text-gray-600 font-mono underline underline-offset-4"
+            >
+              Click here to try a demo receipt!
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
