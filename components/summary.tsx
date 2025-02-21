@@ -8,6 +8,7 @@ import type { Receipt } from "@/lib/types"
 import { getColorForPerson } from "@/lib/colors"
 import { motion, useMotionValue, useTransform, useDragControls, type PanInfo } from "framer-motion"
 import { Trash2 } from "lucide-react"
+import { differenceInDays, format, formatDistanceToNow } from "date-fns"
 
 interface SummaryProps {
   receipt: Receipt
@@ -21,15 +22,42 @@ export default function Summary({ receipt, onDelete, onClick }: SummaryProps) {
   const x = useMotionValue(0)
   const background = useTransform(x, [-100, 0], ["rgb(239, 68, 68)", "rgb(255, 255, 248)"])
   const color = useTransform(x, [-100, 0], ["rgb(255, 255, 248)", "rgb(0, 0, 0)"])
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [startX, setStartX] = useState(0)
 
   function startDrag(event: React.PointerEvent) {
+    setStartX(event.clientX)
+
+    // Start the drag immediately, we'll check direction during drag
     dragControls.start(event)
   }
 
-  function handleDelete() {
-    setIsDeleting(true)
-    onDelete()
+  function handleDrag(event: Event, info: PanInfo) {
+    const currentX = (event as PointerEvent).clientX
+    const deltaX = currentX - startX
+    const isHorizontal = Math.abs(deltaX) > Math.abs(info.offset.y)
+
+    if (!isDragging && isHorizontal && Math.abs(deltaX) > 5) {
+      setIsDragging(true)
+    }
+  }
+
+  function handleDragEnd(event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
+    setIsDragging(false)
+    if (info.offset.x < -100) {
+      onDelete()
+    } else {
+      // Explicitly reset position for both directions
+      x.set(0)
+    }
+  }
+
+  function dateDistance(date: string) {
+    if (differenceInDays(new Date(), new Date(date)) > 4) {
+      return format(new Date(date), "MMM d, yyyy")
+    } else {
+      return formatDistanceToNow(new Date(date), { addSuffix: true })
+    }
   }
 
   return (
@@ -50,7 +78,7 @@ export default function Summary({ receipt, onDelete, onClick }: SummaryProps) {
               variant="ghost"
               size="icon"
               className="text-white hover:text-white hover:bg-red-600 mr-4"
-              onClick={handleDelete}
+              onClick={onDelete}
             >
               <Trash2 className="h-6 w-6" />
               <span className="sr-only">Delete receipt</span>
@@ -65,12 +93,24 @@ export default function Summary({ receipt, onDelete, onClick }: SummaryProps) {
             dragDirectionLock
             dragConstraints={{ left: -100, right: 0 }}
             dragElastic={0.2}
+            onDrag={handleDrag}
+            onDragEnd={handleDragEnd}
             onTap={onClick}
-            className="relative cursor-pointer active:cursor-grabbing touch-pan-x select-none bg-white z-10"
+            className="relative cursor-pointer select-none bg-white z-10"
             whileDrag={{ cursor: "grabbing" }}
             initial={false}
+            transition={{
+              type: "spring",
+              bounce: 0,
+              duration: 0.3,
+              stiffness: 500,
+            }}
           >
-            <div onPointerDown={startDrag} className="absolute inset-0 touch-none" />
+            <div
+              onPointerDown={startDrag}
+              className="absolute inset-0"
+              style={{ touchAction: "pan-y" }}
+            />
             <CardHeader className="border-b border-dashed border-gray-300 pb-2">
               <div className="flex justify-between items-center">
                 <h2 className="text-sm md:text-lg font-bold uppercase">{metadata.businessName}</h2>
@@ -78,7 +118,7 @@ export default function Summary({ receipt, onDelete, onClick }: SummaryProps) {
                   ${(metadata.totalInCents / 100).toFixed(2)}
                 </span>
               </div>
-              <p className="text-xs text-gray-500">{new Date(createdAt).toLocaleDateString()}</p>
+              <p className="text-xs text-gray-500">{dateDistance(createdAt)}</p>
             </CardHeader>
             <CardContent className="pt-2">
               <p className="text-xs font-handwriting mb-2">{billName}</p>

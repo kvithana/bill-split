@@ -127,7 +127,7 @@ export default function FloatingNav({
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
           className={cn({
-            "fixed left-1/2 transform -translate-x-1/2 bg-[#fffdf8] rounded-full shadow-lg p-2 flex space-x-2 border border-dashed border-gray-300":
+            "fixed transform -translate-x-1/2 bg-[#fffdf8] rounded-full shadow-lg p-2 flex space-x-2 border border-dashed border-gray-300":
               true,
             "bottom-4": !isStandalone,
             "bottom-8": isStandalone,

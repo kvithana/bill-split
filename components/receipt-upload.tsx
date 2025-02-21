@@ -24,17 +24,6 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
   const addReceipt = useReceiptStore((state) => state.addReceipt)
   const [success, setSuccess] = useState(false)
 
-  // Add a reference to the file input
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Consolidate file selection handling
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) handleFile(file)
-    // Clear the input value to ensure onChange fires even if same file is selected
-    e.target.value = ""
-  }
-
   const handleFile = async (file: File) => {
     try {
       if (success) return
@@ -57,7 +46,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
       const response = await analyse(newBlob.url)
 
       if (!response?.success || !response?.receipt) {
-        throw new Error("Failed to analyze receipt")
+        throw new Error(response?.error ?? "Failed to analyze receipt")
       }
 
       if (response?.receipt && addReceipt) {
@@ -81,22 +70,35 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
     if (file) handleFile(file)
   }, [])
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const {
+    getRootProps,
+    getInputProps,
+    open: openDefault,
+    isDragActive,
+  } = useDropzone({
     onDrop,
     accept: {
       "image/*": [".jpeg", ".jpg", ".png", ".heic"],
     },
     maxFiles: 1,
     multiple: false,
+    noClick: true,
   })
 
-  // Update the button click handlers
-  const openFilePicker = (capture?: boolean) => (e: React.MouseEvent) => {
+  const { getInputProps: getCameraInputProps, open: openCamera } = useDropzone({
+    onDrop,
+    accept: {
+      "image/*": [".jpeg", ".jpg", ".png", ".heic"],
+    },
+    maxFiles: 1,
+    multiple: false,
+    noClick: true,
+    noDrag: true,
+  })
+
+  const openFilePicker = (useCamera: boolean) => (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (fileInputRef.current) {
-      fileInputRef.current.capture = capture ? "environment" : ""
-      fileInputRef.current.click()
-    }
+    useCamera ? openCamera() : openDefault()
   }
 
   return (
@@ -127,14 +129,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
               className="w-full h-full flex flex-col items-center justify-center"
             >
               <input {...getInputProps()} />
-              {/* Add hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
+              <input {...getCameraInputProps()} />
               <Upload
                 className={`w-16 h-16 mb-6 transition-transform ${
                   isDragActive ? "text-gray-400 scale-110" : "text-gray-300 group-hover:scale-110"

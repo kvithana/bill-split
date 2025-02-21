@@ -53,17 +53,18 @@ export function InstallPrompt() {
         <span>Install app</span>
       </div>
 
+      <p className="text-xs text-gray-500">Store receipts locally & access them offline</p>
+
       {isIOS ? (
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <span>Tap</span>
           <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-md border border-gray-200">
             <Share className="w-3 h-3" />
-            <span>Share</span>
           </div>
           <span>then</span>
           <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-md border border-gray-200">
             <Plus className="w-3 h-3" />
-            <span>Add to Home in Safari</span>
+            <span className="whitespace-nowrap">Add to Home Screen</span>
           </div>
         </div>
       ) : (

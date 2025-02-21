@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from "react"
 import type { Person, PersonPortion, Receipt } from "@/lib/types"
 import { X, UserPlus, Percent, Equal, Sliders } from "lucide-react"
 import { getColorForPerson } from "@/lib/colors"
+import { format } from "date-fns"
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ export default function DisplayView({
   const { metadata, lineItems, adjustments, people } = receipt
   const [newPersonName, setNewPersonName] = useState("")
   const [isAddPersonDialogOpen, setIsAddPersonDialogOpen] = useState(false)
+  const [showImageDialog, setShowImageDialog] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -65,8 +67,33 @@ export default function DisplayView({
     <Card className={"receipt w-full max-w-lg mx-auto font-mono text-sm"}>
       <CardHeader className="text-center border-b border-dashed border-gray-300">
         <h2 className="text-lg font-bold uppercase">{metadata.businessName}</h2>
-        <p className="text-xs text-gray-500">{new Date(receipt.createdAt).toLocaleDateString()}</p>
+        <p className="text-xs text-gray-500">
+          {new Date(receipt.metadata.dateAsISOString ?? receipt.createdAt).toLocaleDateString()}
+        </p>
         <p className="text-sm font-handwriting mt-2">{receipt.billName}</p>
+        {receipt.imageUrl && (
+          <p>
+            <Dialog>
+              <DialogTrigger asChild>
+                <button className="ml-2 border-b border-dotted border-gray-400 hover:border-gray-600 text-xs uppercase text-gray-500">
+                  original receipt
+                </button>
+              </DialogTrigger>
+              <DialogContent className="border-none p-2">
+                <DialogTitle className="flex items-center justify-center font-mono font-normal text-xs mt-2">
+                  Uploaded on {format(new Date(receipt.createdAt), "MMM d, yyyy HH:mm a")}
+                </DialogTitle>{" "}
+                <div className="relative w-full h-[80dvh] flex items-center justify-center">
+                  <img
+                    src={receipt.imageUrl}
+                    alt="Receipt"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          </p>
+        )}
       </CardHeader>
       <CardContent className="p-2 md:p-4 space-y-2" ref={contentRef}>
         <div className="space-y-2">
@@ -164,7 +191,7 @@ export default function DisplayView({
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add a new person</DialogTitle>
+                <DialogTitle className="font-mono">Add a new person</DialogTitle>
               </DialogHeader>
               <div className="flex items-center space-x-2">
                 <Input
