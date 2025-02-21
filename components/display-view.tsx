@@ -74,7 +74,7 @@ export default function DisplayView({
             <Button
               key={item.id}
               variant="ghost"
-              className="w-full flex justify-between items-start whitespace-normal h-auto md:px-4 px-3"
+              className="w-full flex justify-between items-start whitespace-normal h-auto md:px-4 px-3 hover:none md:hover:bg-accent md:hover:text-accent-foreground"
               onClick={() => {
                 if (contentRef.current) {
                   sessionStorage.setItem("scrollPosition", contentRef.current.scrollTop.toString())
@@ -110,7 +110,7 @@ export default function DisplayView({
             <Button
               key={adjustment.id}
               variant="ghost"
-              className="w-full flex justify-between items-start whitespace-normal h-auto"
+              className="w-full flex justify-between items-start whitespace-normal h-auto hover:none md:hover:bg-accent md:hover:text-accent-foreground"
               onClick={() => {
                 if (contentRef.current) {
                   sessionStorage.setItem("scrollPosition", contentRef.current.scrollTop.toString())
