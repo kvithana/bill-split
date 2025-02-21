@@ -16,6 +16,24 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Split // it",
   description: "Split bills with friends. No fuss.",
+  openGraph: {
+    title: "Split // it",
+    description: "Split bills with friends. No fuss.",
+    images: [
+      {
+        url: "/og_image.png",
+        width: 1200,
+        height: 630,
+        alt: "Split // it - Split bills with friends",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Split // it",
+    description: "Split bills with friends. No fuss.",
+    images: ["/og_image.png"],
+  },
 }
 
 export default function RootLayout({
