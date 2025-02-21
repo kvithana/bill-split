@@ -8,7 +8,9 @@
       "src": "icon512_maskable.png",
       "type": "image/png"
     },
-    { "purpose": "any", "sizes": "512x512", "src": "icon512_rounded.png", "type": "image/png" }
+    { "purpose": "any", "sizes": "512x512", "src": "icon512_rounded.png", "type": "image/png" },
+    { "purpose": "any", "sizes": "192x192", "src": "icon192.png", "type": "image/png" },
+    { "purpose": "any", "sizes": "180x180", "src": "apple-touch-icon.png", "type": "image/png" }
   ],
   "orientation": "portrait",
   "display": "standalone",
@@ -16,5 +18,8 @@
   "lang": "en-GB",
   "name": "Split // it",
   "short_name": "Split",
-  "start_url": "https://split.kal.lol"
+  "start_url": "https://split.kal.lol",
+  "description": "Split expenses with friends",
+  "categories": ["finance", "utilities"],
+  "scope": "/"
 }
