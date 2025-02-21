@@ -24,49 +24,46 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
   const addReceipt = useReceiptStore((state) => state.addReceipt)
   const [success, setSuccess] = useState(false)
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      try {
-        if (success) return
-        setImportState("uploading")
-        const reader = new FileReader()
-        reader.onload = (e) => setPreviewImage(e.target?.result as string)
-        reader.readAsDataURL(file)
+  const handleFile = async (file: File) => {
+    try {
+      if (success) return
+      setImportState("uploading")
+      const reader = new FileReader()
+      reader.onload = (e) => setPreviewImage(e.target?.result as string)
+      reader.readAsDataURL(file)
 
-        const ip = await getIp()
+      const ip = await getIp()
 
-        if (!ip) throw new Error("No IP address found")
+      if (!ip) throw new Error("No IP address found")
 
-        const path = [ipHash(ip), file.name].join("/")
-        const newBlob = await upload(path, file, {
-          access: "public",
-          handleUploadUrl: "/api/receipt/upload",
-        })
+      const path = [ipHash(ip), file.name].join("/")
+      const newBlob = await upload(path, file, {
+        access: "public",
+        handleUploadUrl: "/api/receipt/upload",
+      })
 
-        setImportState("analyzing")
-        const response = await analyse(newBlob.url)
+      setImportState("analyzing")
+      const response = await analyse(newBlob.url)
 
-        if (!response?.success || !response?.receipt) {
-          throw new Error("Failed to analyze receipt")
-        }
-
-        if (response?.receipt && addReceipt) {
-          addReceipt(response.receipt)
-          setImportState("done")
-          setTimeout(() => onDone(response.receipt!.id), 1500)
-          setSuccess(true)
-        }
-      } catch (error) {
-        setImportState("error")
-        toast({
-          title: "Error processing receipt",
-          description: error instanceof Error ? error.message : "Unknown error occurred",
-          variant: "destructive",
-        })
+      if (!response?.success || !response?.receipt) {
+        throw new Error("Failed to analyze receipt")
       }
-    },
-    [success, setImportState, setPreviewImage, addReceipt, onDone, analyse]
-  )
+
+      if (response?.receipt && addReceipt) {
+        addReceipt(response.receipt)
+        setImportState("done")
+        setTimeout(() => onDone(response.receipt!.id), 1500)
+        setSuccess(true)
+      }
+    } catch (error) {
+      setImportState("error")
+      toast({
+        title: "Error processing receipt",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      })
+    }
+  }
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0]

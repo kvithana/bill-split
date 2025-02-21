@@ -37,7 +37,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     if (screenId === "display" && scrollPosition[screenId]) {
       window.scrollTo(0, scrollPosition[screenId])
     }
-  }, [screenId])
+  }, [screenId, scrollPosition])
 
   useEffect(() => {
     // Once the receipt animation is complete, wait 2 seconds then show nav

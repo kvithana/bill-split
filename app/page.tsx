@@ -50,7 +50,7 @@ export default function Home() {
             className="w-full max-w-md mx-auto text-center space-y-4 pt-8"
           >
             <h1 className="font-mono text-2xl md:text-3xl font-bold tracking-tight">
-              Split <span className="opacity-40">//</span> it
+              Split <span className="opacity-40">{"//"}</span> it
             </h1>
             <p className="text-sm text-gray-600 font-mono">Split bills with friends. No fuss.</p>
             <p className="text-xs text-gray-400 font-mono">by Kalana Vithana</p>
