@@ -86,12 +86,10 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
   })
 
   const openFilePicker = (useCamera: boolean) => (e: React.MouseEvent) => {
-    e.stopPropagation()
     if (useCamera && fileInputRef.current) {
+      e.stopPropagation()
       fileInputRef.current.capture = "environment"
       fileInputRef.current.click()
-    } else {
-      open()
     }
   }
 
