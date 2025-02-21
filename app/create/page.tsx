@@ -21,7 +21,7 @@ export default function CreatePage() {
             variant="ghost"
             size="sm"
             onClick={() => router.push("/")}
-            className="font-mono text-gray-500 hover:text-gray-800"
+            className="font-mono text-gray-500 hover:text-gray-800 uppercase"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back

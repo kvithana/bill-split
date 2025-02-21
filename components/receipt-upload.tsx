@@ -8,10 +8,9 @@ import { getIp } from "@/hooks/use-ip"
 import { ipHash } from "@/lib/ip-hash"
 import { upload } from "@vercel/blob/client"
 import { AnimatePresence, motion } from "framer-motion"
-import { ArrowLeft, Camera, CheckCircle, ScanEye, Upload, X } from "lucide-react"
+import { Camera, CheckCircle, ScanEye, Upload, X } from "lucide-react"
 import { useState, useCallback } from "react"
 import { toast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
 import { useDropzone } from "react-dropzone"
 import { Receipt } from "@/lib/types"
 import { generateId } from "@/lib/id"
@@ -23,7 +22,6 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
   const [importState, setImportState] = useState<ImportState>("initial")
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [receipts] = useStore((state) => state.receipts)
-  const router = useRouter()
   const [analyse] = useAnalyseReceipt()
   const addReceipt = useReceiptStore((state) => state.addReceipt)
   const hasReceipts = !!Object.keys(receipts ?? {}).length
