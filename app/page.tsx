@@ -29,9 +29,8 @@ export default function Home() {
 
   const handleReceiptClick = (id: string) => {
     setIsExiting(true)
-    setTimeout(() => {
-      router.push(`/view?id=${id}`)
-    }, 500)
+    router.push(`/view?id=${id}`)
+    setTimeout(() => {}, 500)
   }
 
   return (
