@@ -27,7 +27,7 @@ export default function CreatePage() {
             Back
           </Button>
         </motion.div>
-        <ReceiptImport onDone={(id) => router.push("/view?id=" + id + "&s=1")} />
+        <ReceiptImport onDone={(id) => router.replace("/view?id=" + id + "&s=1")} />
         <div />
       </div>
     </StyledErrorBoundary>
