@@ -127,7 +127,9 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   const handleViewChange = (newView: ViewMode) => {
     if (newView === "summary") {
       const isFullySplit =
-        receipt.lineItems.every((item) => (item.splitting?.portions || []).length > 0) &&
+        receipt.lineItems
+          .filter((item) => item.totalPriceInCents > 0)
+          .every((item) => (item.splitting?.portions || []).length > 0) &&
         receipt.adjustments.every((adj) =>
           adj.splitting.method === "manual" ? (adj.splitting.portions || []).length > 0 : true
         )
