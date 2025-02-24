@@ -117,7 +117,7 @@ export default function EditItemsView({
 
   const calculateTotal = (): number | string => {
     const itemsTotal = editedReceipt.lineItems.reduce((sum, item) => {
-      const itemTotal = Number.parseFloat(item.totalPriceInCents) * Number.parseFloat(item.quantity)
+      const itemTotal = Number.parseFloat(item.totalPriceInCents)
       return isNaN(itemTotal) ? sum : sum + itemTotal
     }, 0)
 
@@ -172,6 +172,7 @@ export default function EditItemsView({
       toast({
         title: "Changes saved successfully",
         description: "Your receipt has been updated.",
+        duration: 2000,
       })
     } else {
       toast({
