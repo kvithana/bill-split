@@ -54,6 +54,9 @@ export const ReceiptSchema = z.object({
   lineItems: z.array(ReceiptLineItemSchema),
   adjustments: z.array(ReceiptAdjustmentSchema),
   ownerId: z.string().optional(),
+  deviceId: z.string().optional(), // Device that created the receipt
+  isShared: z.boolean().optional(), // Whether this receipt is shared/in the cloud
+  lastSyncedAt: z.string().optional(), // Last time this receipt was synced
 })
 
 export const ReceiptScanSchema = z.object({

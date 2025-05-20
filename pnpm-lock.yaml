@@ -29,6 +29,9 @@ dependencies:
   '@serwist/next':
     specifier: ^9.0.11
     version: 9.0.11(next@15.1.7)(typescript@5.7.3)
+  '@upstash/redis':
+    specifier: ^1.34.9
+    version: 1.34.9
   '@vercel/analytics':
     specifier: ^1.5.0
     version: 1.5.0(next@15.1.7)(react@19.0.0)
@@ -1448,6 +1451,12 @@ packages:
       eslint-visitor-keys: 4.2.0
     dev: true
 
+  /@upstash/redis@1.34.9:
+    resolution: {integrity: sha512-7qzzF2FQP5VxR2YUNjemWs+hl/8VzJJ6fOkT7O7kt9Ct8olEVzb1g6/ik6B8Pb8W7ZmYv81SdlVV9F6O8bh/gw==}
+    dependencies:
+      crypto-js: 4.2.0
+    dev: false
+
   /@vercel/analytics@1.5.0(next@15.1.7)(react@19.0.0):
     resolution: {integrity: sha512-MYsBzfPki4gthY5HnYN7jgInhAZ7Ac1cYDoRWFomwGHWEX7odTEzbtg9kf/QSo7XEsEAqlQugA6gJ2WS2DEa3g==}
     peerDependencies:
@@ -1869,6 +1878,10 @@ packages:
       path-key: 3.1.1
       shebang-command: 2.0.0
       which: 2.0.2
+
+  /crypto-js@4.2.0:
+    resolution: {integrity: sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==}
+    dev: false
 
   /cssesc@3.0.0:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
