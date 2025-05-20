@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-const PersonSchema = z.object({
+export const PersonSchema = z.object({
   id: z.string(),
   name: z.string(),
 })
@@ -16,7 +16,7 @@ const ReceiptMetadataSchema = z.object({
   dateAsISOString: z.string().optional(),
 })
 
-const ReceiptLineItemSchema = z.object({
+export const ReceiptLineItemSchema = z.object({
   id: z.string(),
   name: z.string(),
   quantity: z.number(),
@@ -34,7 +34,7 @@ const SplitMethodSchema = z.enum([
   "manual", // Custom portions like line items
 ])
 
-const ReceiptAdjustmentSchema = z.object({
+export const ReceiptAdjustmentSchema = z.object({
   id: z.string(),
   name: z.string(),
   amountInCents: z.number(),
@@ -57,6 +57,7 @@ export const ReceiptSchema = z.object({
   deviceId: z.string().optional(), // Device that created the receipt
   isShared: z.boolean().optional(), // Whether this receipt is shared/in the cloud
   lastSyncedAt: z.string().optional(), // Last time this receipt was synced
+  shareKey: z.string().optional(), // Key for generating shareable URLs
 })
 
 export const ReceiptScanSchema = z.object({

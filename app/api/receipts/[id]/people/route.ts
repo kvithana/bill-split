@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { CloudReceiptStorage } from "@/lib/receipt/cloud-storage"
 import { z } from "zod"
-
-// Schema for the request body when adding a person
+import { validateRequest } from "@/lib/auth/validate-request"
+import { PersonSchema } from "@/lib/types"
+// Schema for request body when adding a person - standardized to only use full person object
 const AddPersonSchema = z.object({
-  person: z.object({
-    id: z.string(),
-    name: z.string(),
-  }),
+  person: PersonSchema,
+  shareKey: z.string().optional(), // Optional shareKey for shared links
 })
 
 /**
@@ -16,13 +15,6 @@ const AddPersonSchema = z.object({
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: receiptId } = await params
-    const deviceId = request.headers.get("X-Device-ID")
-
-    if (!deviceId) {
-      return NextResponse.json({ success: false, error: "Missing device ID" }, { status: 400 })
-    }
-
-    // Get the request body
     const body = await request.json()
 
     // Validate the request body
@@ -38,8 +30,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
+    // Extract person data
+    const { person } = data
+
+    const authResult = await validateRequest(request, receiptId)
+    if (!authResult.success) {
+      return NextResponse.json(authResult, { status: authResult.code })
+    }
+
     // Add the person to the receipt
-    const updatedReceipt = await CloudReceiptStorage.addPerson(receiptId, data.person, deviceId)
+    const updatedReceipt = await CloudReceiptStorage.addPerson(receiptId, person)
 
     if (!updatedReceipt) {
       return NextResponse.json(
@@ -51,6 +51,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({
       success: true,
       receipt: updatedReceipt,
+      personId: person.id, // Return the person ID for clients that may need it
     })
   } catch (error) {
     console.error("Error adding person:", error)

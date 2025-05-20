@@ -1,28 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { CloudReceiptStorage } from "@/lib/receipt/cloud-storage"
-import { ReceiptLineItem } from "@/lib/types"
+import { ReceiptLineItem, ReceiptLineItemSchema } from "@/lib/types"
 import { z } from "zod"
+import { validateRequest } from "@/lib/auth/validate-request"
 
 // Schema for the request body
 const UpdateLineItemsSchema = z.object({
-  lineItems: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      quantity: z.number(),
-      totalPriceInCents: z.number(),
-      splitting: z
-        .object({
-          portions: z.array(
-            z.object({
-              personId: z.string(),
-              portions: z.number(),
-            })
-          ),
-        })
-        .optional(),
-    })
-  ),
+  lineItems: z.array(ReceiptLineItemSchema),
+  shareKey: z.string().optional(), // Optional shareKey for shared links
 })
 
 /**
@@ -31,13 +16,6 @@ const UpdateLineItemsSchema = z.object({
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: receiptId } = await params
-    const deviceId = request.headers.get("X-Device-ID")
-
-    if (!deviceId) {
-      return NextResponse.json({ success: false, error: "Missing device ID" }, { status: 400 })
-    }
-
-    // Get the request body
     const body = await request.json()
 
     // Validate the request body
@@ -53,12 +31,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
+    const authResult = await validateRequest(request, receiptId)
+    if (!authResult.success) {
+      return NextResponse.json(authResult, { status: authResult.code })
+    }
+
     // Update the receipt with new line items
-    const updatedReceipt = await CloudReceiptStorage.updateReceipt(
-      receiptId,
-      { lineItems: data.lineItems },
-      deviceId
-    )
+    const updatedReceipt = await CloudReceiptStorage.updateReceipt(receiptId, {
+      lineItems: data.lineItems,
+    })
 
     if (!updatedReceipt) {
       return NextResponse.json(

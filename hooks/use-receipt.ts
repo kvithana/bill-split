@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect, useMemo } from "react"
 import { useReceiptStore } from "@/data/state"
 import { Receipt, ReceiptLineItem, ReceiptAdjustment, Person } from "@/lib/types"
 import { getDeviceId } from "@/lib/device-id"
+import { generateId } from "@/lib/id"
+import { pick } from "ramda"
 
 // Type for receipt source - determines where the receipt is stored
 export type ReceiptSource = "local" | "cloud"
@@ -19,7 +21,7 @@ export type UseReceiptResult = {
   updateAdjustments: (adjustments: ReceiptAdjustment[]) => Promise<void>
   addPerson: (person: Person) => Promise<void>
   removePerson: (personId: string) => Promise<void>
-  moveToCloud: () => Promise<string | null> // Returns the cloud ID if successful
+  moveToCloud: () => Promise<{ receiptId: string; shareKey: string } | null> // Returns cloud ID and shareKey if successful
   refresh: () => Promise<void> // Force refresh from the source
 }
 
@@ -28,11 +30,16 @@ export type UseReceiptResult = {
  * @param receiptId The ID of the receipt to manage
  * @returns An object with receipt data and mutation methods
  */
-export function useReceipt(receiptId: string): UseReceiptResult {
+export function useReceipt(
+  receiptId: string,
+  options?: { shareKey?: string; initialReceipt?: Receipt }
+): UseReceiptResult {
   const [source, setSource] = useState<ReceiptSource>("local")
-  const [receipt, setReceipt] = useState<Receipt | null>(null)
+  const [receipt, setReceipt] = useState<Receipt | null>(options?.initialReceipt || null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
+
+  const currentHash = useMemo(() => (receipt ? receiptHash(receipt) : 0), [receipt])
 
   // Use a ref to track if we're currently fetching to prevent double fetches
   const [isFetching, setIsFetching] = useState(false)
@@ -63,6 +70,19 @@ export function useReceipt(receiptId: string): UseReceiptResult {
     return receipt && "isShared" in receipt && receipt.isShared === true
   }, [])
 
+  const headers = useMemo(() => {
+    if (options?.shareKey) {
+      return {
+        "Content-Type": "application/json",
+        "X-Share-Key": options.shareKey,
+      } as Record<string, string>
+    }
+    return {
+      "Content-Type": "application/json",
+      "X-Device-ID": getDeviceId(),
+    }
+  }, [options?.shareKey])
+
   // Fetch receipt data based on the source
   const fetchReceipt = useCallback(
     async (skipLoadingState = false) => {
@@ -84,10 +104,7 @@ export function useReceipt(receiptId: string): UseReceiptResult {
           // Cloud receipts are fetched from the API
           const response = await fetch(`/api/receipts/${receiptId}`, {
             method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Device-ID": getDeviceId(),
-            },
+            headers,
           })
 
           if (!response.ok) {
@@ -96,7 +113,15 @@ export function useReceipt(receiptId: string): UseReceiptResult {
 
           const data = await response.json()
           if (data.success && data.receipt) {
-            setReceipt(data.receipt)
+            console.log("Setting receipt from cloud")
+            const newHash = receiptHash(data.receipt)
+            const currentHash = receiptHash(localReceipt)
+
+            if (newHash !== currentHash) {
+              console.log("Updating local receipt from cloud")
+              storeActions.updateReceipt(receiptId, data.receipt)
+              setReceipt(data.receipt)
+            }
           } else {
             throw new Error(data.error || "Unknown error")
           }
@@ -149,10 +174,7 @@ export function useReceipt(receiptId: string): UseReceiptResult {
           // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/line-items`, {
             method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Device-ID": getDeviceId(),
-            },
+            headers,
             body: JSON.stringify({ lineItems }),
           })
 
@@ -191,10 +213,7 @@ export function useReceipt(receiptId: string): UseReceiptResult {
           // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/adjustments`, {
             method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Device-ID": getDeviceId(),
-            },
+            headers,
             body: JSON.stringify({ adjustments }),
           })
 
@@ -233,10 +252,7 @@ export function useReceipt(receiptId: string): UseReceiptResult {
           // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/people`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Device-ID": getDeviceId(),
-            },
+            headers,
             body: JSON.stringify({ person }),
           })
 
@@ -282,10 +298,7 @@ export function useReceipt(receiptId: string): UseReceiptResult {
           // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/people/${personId}`, {
             method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Device-ID": getDeviceId(),
-            },
+            headers,
           })
 
           if (!response.ok) {
@@ -310,22 +323,57 @@ export function useReceipt(receiptId: string): UseReceiptResult {
     if (!receipt) return null
 
     // If already a cloud receipt, just return the ID
-    if (source === "cloud") return receiptId
+    if (source === "cloud") {
+      // If it already has a shareKey, return it, otherwise generate a new one
+      if (receipt.shareKey) {
+        return { receiptId, shareKey: receipt.shareKey }
+      }
+
+      // Generate a new shareKey if it doesn't exist
+      const shareKey = generateId()
+      try {
+        // Update the cloud receipt with the new shareKey
+        const response = await fetch(`/api/receipts/${receiptId}`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({
+            shareKey,
+          }),
+        })
+
+        if (response.ok) {
+          // Update our local state
+          const updatedReceipt = {
+            ...receipt,
+            shareKey,
+          } as Receipt
+          setReceipt(updatedReceipt)
+          return { receiptId, shareKey }
+        }
+
+        // If update failed, just return the ID without a shareKey
+        return { receiptId, shareKey: "" }
+      } catch (err) {
+        // If there's an error, still return the ID but without a shareKey
+        return { receiptId, shareKey: "" }
+      }
+    }
 
     try {
       setIsLoading(true)
 
+      // Generate a shareKey for this receipt
+      const shareKey = generateId()
+
       // Call the API to create a cloud version
       const response = await fetch("/api/receipts/create", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Device-ID": getDeviceId(),
-        },
+        headers,
         body: JSON.stringify({
           receipt: {
             ...receipt,
             deviceId: getDeviceId(),
+            shareKey, // Include the generated shareKey
           },
         }),
       })
@@ -341,6 +389,7 @@ export function useReceipt(receiptId: string): UseReceiptResult {
         const updatedReceipt = {
           ...receipt,
           isShared: true,
+          shareKey, // Include the shareKey in our local state
         } as Receipt
 
         // Update local storage with the updated receipt
@@ -350,7 +399,7 @@ export function useReceipt(receiptId: string): UseReceiptResult {
         setReceipt(updatedReceipt)
         setSource("cloud")
 
-        return data.receiptId
+        return { receiptId: data.receiptId, shareKey }
       } else {
         throw new Error(data.error || "Unknown error")
       }
@@ -394,4 +443,18 @@ export function useReceipt(receiptId: string): UseReceiptResult {
       refresh,
     ]
   )
+}
+
+function receiptHash(receipt: Receipt) {
+  const string = JSON.stringify(
+    pick(["lineItems", "people", "adjustments", "deviceId", "billName"], receipt)
+  )
+
+  // simple hash function
+  let hash = 0
+  for (let i = 0; i < string.length; i++) {
+    const char = string.charCodeAt(i)
+    hash = (hash << 5) - hash + char
+  }
+  return hash
 }

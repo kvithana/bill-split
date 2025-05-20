@@ -50,34 +50,17 @@ export class CloudReceiptStorage {
    * Update specific fields of a receipt
    * @param receiptId The receipt ID to update
    * @param updates Partial receipt data to apply
-   * @param deviceId The device making the update
    * @returns The updated receipt or null if not found/failed
    */
   static async updateReceipt(
     receiptId: string,
-    updates: Partial<Receipt>,
-    deviceId: string
+    updates: Partial<Receipt>
   ): Promise<Receipt | null> {
     try {
       // Get current receipt
       const currentReceipt = await this.getReceipt(receiptId)
       if (!currentReceipt) {
         return null
-      }
-
-      // Check if device is authorized to update
-      // Allow the creator or anyone if no restrictions
-      const hasDeviceId = "deviceId" in currentReceipt
-      const hasOwnerId = "ownerId" in currentReceipt
-
-      if (
-        hasOwnerId &&
-        hasDeviceId &&
-        currentReceipt.ownerId &&
-        currentReceipt.ownerId !== deviceId &&
-        currentReceipt.deviceId !== deviceId
-      ) {
-        throw new Error("Not authorized to update this receipt")
       }
 
       // Apply updates
@@ -100,13 +83,11 @@ export class CloudReceiptStorage {
    * Add a person to a receipt
    * @param receiptId The receipt ID
    * @param person The person to add
-   * @param deviceId The device making the update
    * @returns The updated receipt or null if not found/failed
    */
   static async addPerson(
     receiptId: string,
-    person: { id: string; name: string },
-    deviceId: string
+    person: { id: string; name: string }
   ): Promise<Receipt | null> {
     try {
       const receipt = await this.getReceipt(receiptId)
@@ -120,13 +101,9 @@ export class CloudReceiptStorage {
       }
 
       // Update people array
-      return await this.updateReceipt(
-        receiptId,
-        {
-          people: [...receipt.people, person],
-        },
-        deviceId
-      )
+      return await this.updateReceipt(receiptId, {
+        people: [...receipt.people, person],
+      })
     } catch (error) {
       console.error("Error adding person to receipt:", error)
       return null
@@ -137,14 +114,9 @@ export class CloudReceiptStorage {
    * Remove a person from a receipt
    * @param receiptId The receipt ID
    * @param personId The person ID to remove
-   * @param deviceId The device making the update
    * @returns The updated receipt or null if not found/failed
    */
-  static async removePerson(
-    receiptId: string,
-    personId: string,
-    deviceId: string
-  ): Promise<Receipt | null> {
+  static async removePerson(receiptId: string, personId: string): Promise<Receipt | null> {
     try {
       const receipt = await this.getReceipt(receiptId)
       if (!receipt) {
@@ -152,13 +124,9 @@ export class CloudReceiptStorage {
       }
 
       // Update people array
-      return await this.updateReceipt(
-        receiptId,
-        {
-          people: receipt.people.filter((p) => p.id !== personId),
-        },
-        deviceId
-      )
+      return await this.updateReceipt(receiptId, {
+        people: receipt.people.filter((p) => p.id !== personId),
+      })
     } catch (error) {
       console.error("Error removing person from receipt:", error)
       return null

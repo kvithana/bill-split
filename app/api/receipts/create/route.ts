@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       ownerId: receipt.ownerId || deviceId,
       isShared: true,
       lastSyncedAt: new Date().toISOString(),
+      shareKey: receipt.shareKey,
     }
 
     // Save the receipt to the cloud
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
       success: true,
       receiptId: savedReceipt.id,
       receipt: savedReceipt,
+      shareKey: savedReceipt.shareKey,
     })
   } catch (error) {
     console.error("Error creating receipt:", error)

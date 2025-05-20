@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { CloudReceiptStorage } from "@/lib/receipt/cloud-storage"
+import { z } from "zod"
+import { validateRequest } from "@/lib/auth/validate-request"
 
 /**
  * DELETE /api/receipts/[id]/people/[personId] - Remove a person from a receipt
@@ -10,14 +12,14 @@ export async function DELETE(
 ) {
   try {
     const { id: receiptId, personId } = await params
-    const deviceId = request.headers.get("X-Device-ID")
 
-    if (!deviceId) {
-      return NextResponse.json({ success: false, error: "Missing device ID" }, { status: 400 })
+    const authResult = await validateRequest(request, receiptId)
+    if (!authResult.success) {
+      return NextResponse.json(authResult, { status: authResult.code })
     }
 
     // Remove the person from the receipt
-    const updatedReceipt = await CloudReceiptStorage.removePerson(receiptId, personId, deviceId)
+    const updatedReceipt = await CloudReceiptStorage.removePerson(receiptId, personId)
 
     if (!updatedReceipt) {
       return NextResponse.json(

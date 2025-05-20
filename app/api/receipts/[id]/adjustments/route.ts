@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { CloudReceiptStorage } from "@/lib/receipt/cloud-storage"
 import { z } from "zod"
+import { validateRequest } from "@/lib/auth/validate-request"
 
 // Schema for the request body
 const UpdateAdjustmentsSchema = z.object({
@@ -22,6 +23,7 @@ const UpdateAdjustmentsSchema = z.object({
       }),
     })
   ),
+  shareKey: z.string().optional(), // Optional shareKey for shared links
 })
 
 /**
@@ -30,13 +32,6 @@ const UpdateAdjustmentsSchema = z.object({
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: receiptId } = await params
-    const deviceId = request.headers.get("X-Device-ID")
-
-    if (!deviceId) {
-      return NextResponse.json({ success: false, error: "Missing device ID" }, { status: 400 })
-    }
-
-    // Get the request body
     const body = await request.json()
 
     // Validate the request body
@@ -52,12 +47,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
+    const authResult = await validateRequest(request, receiptId)
+    if (!authResult.success) {
+      return NextResponse.json(authResult, { status: authResult.code })
+    }
+
     // Update the receipt with new adjustments
-    const updatedReceipt = await CloudReceiptStorage.updateReceipt(
-      receiptId,
-      { adjustments: data.adjustments },
-      deviceId
-    )
+    const updatedReceipt = await CloudReceiptStorage.updateReceipt(receiptId, {
+      adjustments: data.adjustments,
+    })
 
     if (!updatedReceipt) {
       return NextResponse.json(
