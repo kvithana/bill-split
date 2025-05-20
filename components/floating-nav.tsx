@@ -177,7 +177,7 @@ export default function FloatingNav({
                   "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === 1,
                 })}
               >
-                <Edit className="h-4 w-4 mr-1" />
+                <Edit className="h-4 w-4 md:mr-1" />
                 <span className="sr-only md:not-sr-only">Edit</span>
               </Button>
             </TutorialTooltip>
@@ -201,7 +201,7 @@ export default function FloatingNav({
                 "animate-pulse": isTutorialOpen && tutorialStep === 0,
               })}
             >
-              <Scissors className="h-4 w-4 mr-1" />
+              <Scissors className="h-4 w-4 md:mr-1" />
               <span className="sr-only md:not-sr-only">Split</span>
             </Button>
           </TutorialTooltip>
@@ -224,7 +224,7 @@ export default function FloatingNav({
                 "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === 2,
               })}
             >
-              <FileText className="h-4 w-4 mr-1" />
+              <FileText className="h-4 w-4 md:mr-1" />
               <span className="sr-only md:not-sr-only">Summary</span>
             </Button>
           </TutorialTooltip>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Receipt, Person, ReceiptLineItem, ReceiptAdjustment } from "@/lib/types"
 import { toast } from "@/hooks/use-toast"
 import { AnimatePresence, motion } from "framer-motion"
-import { Loader2 } from "lucide-react"
+import { Loader2, ArrowLeft } from "lucide-react"
 import DisplayView from "./display-view"
 import SplittingView from "./splitting-view"
 import SummaryView from "./summary-view"
@@ -13,6 +13,8 @@ import { useStandalone } from "@/hooks/use-standalone"
 import FloatingNav from "./floating-nav"
 import { useReceipt } from "@/hooks/use-receipt"
 import { Alert, AlertDescription, AlertTitle } from "./alert"
+import { slideVariants, backButtonVariants } from "@/lib/animations"
+import { Button } from "./ui/button"
 
 type ViewMode = "display" | "split" | "summary" | "edit"
 
@@ -34,6 +36,8 @@ export default function SplitReceiptContainer({
   const isStandalone = useStandalone()
   const [scrollPosition, setScrollPosition] = useState<{ [key: string]: number }>({})
   const [loading, setLoading] = useState(false)
+  const [isReceiptMounted, setIsReceiptMounted] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
 
   // Use the hook instead of custom fetch logic
   const {
@@ -72,6 +76,16 @@ export default function SplitReceiptContainer({
       setDisplayReceipt(updatedInitialReceipt)
     }
   }, [receipt, currentPerson, initialReceipt])
+
+  // Show nav after animation completes
+  useEffect(() => {
+    if (isReceiptMounted) {
+      const timer = setTimeout(() => {
+        // No need to set showNav as we're using isReceiptMounted directly
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [isReceiptMounted])
 
   const handleAddPerson = async (person: Person) => {
     try {
@@ -210,47 +224,74 @@ export default function SplitReceiptContainer({
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-4 mt-2 mb-12">
-      <div className="flex w-full p-4 pl-0 pr-0">
-        {viewMode === "display" && (
-          <DisplayView
-            receipt={displayReceipt}
-            onItemSelect={handleItemSelect}
-            onAddPerson={handleAddPerson}
-            onRemovePerson={handleRemovePerson}
-          />
-        )}
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-4 pt-4">
+      <AnimatePresence>
+        {isVisible && (
+          <motion.div
+            id="split-receipt-container"
+            className={cn("flex-1 w-full", {
+              "pb-32": isStandalone,
+              "pb-16": !isStandalone,
+            })}
+            variants={slideVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            custom={true}
+            onAnimationComplete={() => setIsReceiptMounted(true)}
+          >
+            {!displayReceipt ? (
+              <div className="flex flex-col items-center justify-center min-h-[300px] py-12">
+                <Loader2 className="h-8 w-8 text-primary animate-spin mb-4" />
+                <p className="text-gray-500">Loading receipt...</p>
+              </div>
+            ) : (
+              <>
+                {viewMode === "display" && (
+                  <DisplayView
+                    receipt={displayReceipt}
+                    onItemSelect={handleItemSelect}
+                    onAddPerson={handleAddPerson}
+                    onRemovePerson={handleRemovePerson}
+                  />
+                )}
 
-        {viewMode === "split" && selectedItemId && (
-          <SplittingView
-            receipt={displayReceipt}
-            itemId={selectedItemId}
-            onUpdateLineItems={handleUpdateLineItems}
-            onUpdateAdjustments={handleUpdateAdjustments}
-            onBack={() => handleViewChange("display")}
-            onAddPerson={handleAddPerson}
-          />
-        )}
+                {viewMode === "split" && selectedItemId && (
+                  <SplittingView
+                    receipt={displayReceipt}
+                    itemId={selectedItemId}
+                    onUpdateLineItems={handleUpdateLineItems}
+                    onUpdateAdjustments={handleUpdateAdjustments}
+                    onBack={() => handleViewChange("display")}
+                    onAddPerson={handleAddPerson}
+                  />
+                )}
 
-        {viewMode === "summary" && (
-          <SummaryView
-            highlightPersonId={currentPerson.id}
-            receipt={displayReceipt}
-            shareUrl={`${window.location.origin}/split/${receiptId}?shareKey=${shareKey}`}
-          />
+                {viewMode === "summary" && (
+                  <SummaryView
+                    highlightPersonId={currentPerson.id}
+                    receipt={displayReceipt}
+                    shareUrl={`${window.location.origin}/split/${receiptId}?shareKey=${shareKey}`}
+                  />
+                )}
+              </>
+            )}
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
-      <FloatingNav
-        hideEdit={true}
-        currentView={viewMode === "split" ? "display" : viewMode}
-        onViewChange={handleViewChange}
-        onBack={() => window.history.back()}
-        scrollToBottomButton={false}
-        isCloud={receipt?.isShared === true}
-        onRefresh={refresh}
-        loading={loading}
-      />
+      {isReceiptMounted && displayReceipt && (
+        <FloatingNav
+          hideEdit={true}
+          currentView={viewMode === "split" ? "display" : viewMode}
+          onViewChange={handleViewChange}
+          onBack={() => window.history.back()}
+          scrollToBottomButton={false}
+          isCloud={receipt?.isShared === true}
+          onRefresh={refresh}
+          loading={loading}
+        />
+      )}
     </div>
   )
 }

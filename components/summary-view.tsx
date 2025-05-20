@@ -205,8 +205,10 @@ export default function SummaryView({
               </div>
             </div>
             <div className="mt-3 text-[0.6rem] text-gray-500">
-              <p>*** THANK YOU FOR USING BILL-SPLIT ***</p>
-              <p className="mt-1">RECEIPT ID: {shareUrl.split("/").pop() || "XXXXXXXX"}</p>
+              <p>*** THANK YOU FOR USING SPLIT // IT ***</p>
+              <p className="mt-1">
+                RECEIPT ID: {shareUrl.split("/").pop()?.slice(0, 8) || "XXXXXXXX"}
+              </p>
             </div>
           </div>
         )}

@@ -44,7 +44,7 @@ export function ShareLinkDialog({
         <div className="mt-4 space-y-4">
           <div className="text-center">
             <div className="font-bold uppercase text-sm">Share With Others</div>
-            <p className="text-sm mt-2">Copy this link to share with fellow customers:</p>
+            <p className="text-sm mt-2">Copy this link to allow others to split this receipt</p>
           </div>
 
           <div className="border border-dashed border-gray-300 rounded-sm p-3 bg-gray-50">

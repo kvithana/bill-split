@@ -16,28 +16,9 @@ import { EmptyState } from "./empty-state"
 import { cn } from "@/lib/utils"
 import { useStandalone } from "@/hooks/use-standalone"
 import { useReceipt } from "@/hooks/use-receipt"
+import { slideVariants, backButtonVariants } from "@/lib/animations"
 
 type ViewMode = "display" | "edit" | "split" | "summary"
-
-const slideVariants = {
-  initial: {
-    y: "100%",
-  },
-  animate: (fromScan: boolean) => ({
-    y: 0,
-    transition: {
-      duration: fromScan ? 5 : 1,
-      ease: "easeOut",
-    },
-  }),
-  exit: {
-    y: "100%",
-    transition: {
-      duration: 0.5,
-      ease: "easeOut",
-    },
-  },
-}
 
 export default function ReceiptContainer({ id, fromScan }: { id: string; fromScan: boolean }) {
   const {
@@ -213,13 +194,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-4 pt-0">
       <AnimatePresence>
         {isVisible && (
-          <motion.div
-            className="flex w-full p-4 pl-0 pr-0"
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ delay: 0.2 }}
-          >
+          <motion.div className="flex w-full p-4 pl-0 pr-0" {...backButtonVariants}>
             <Button
               variant="ghost"
               size="sm"
