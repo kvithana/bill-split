@@ -3,9 +3,14 @@ import { Metadata } from "next"
 import { SplitReceiptPage as Page } from "./client-page"
 import { format } from "date-fns"
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
   // Fetch the receipt data for metadata
-  const receipt = await CloudReceiptStorage.getReceipt(params.id)
+  const { id } = await params
+  const receipt = await CloudReceiptStorage.getReceipt(id)
 
   if (!receipt) {
     return {
