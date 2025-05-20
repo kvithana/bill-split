@@ -6,7 +6,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useState, useRef, useEffect } from "react"
 import type { Person, PersonPortion, Receipt } from "@/lib/types"
-import { X, UserPlus, Percent, Equal, Sliders } from "lucide-react"
+import {
+  X,
+  UserPlus,
+  Percent,
+  Equal,
+  Sliders,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Users,
+  Cross,
+} from "lucide-react"
 import { getColorForPerson } from "@/lib/colors"
 import { format } from "date-fns"
 import {
@@ -17,23 +28,32 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { calculateReceiptTotal, formatCurrency } from "@/lib/calculations"
+import { generateId } from "@/lib/id"
+import AddPersonDialog from "./add-person-dialog"
+import ConfirmDialog from "./confirm-dialog"
+import { motion, AnimatePresence } from "framer-motion"
 
 export default function DisplayView({
   receipt,
   onItemSelect,
   onRemovePerson,
   onAddPerson,
+  readOnly = false,
 }: {
   receipt: Receipt
   onItemSelect: (id: string) => void
   onRemovePerson: (id: string) => void
-  onAddPerson: (name: string) => void
+  onAddPerson: (person: Person) => Promise<void>
+  readOnly?: boolean
 }) {
   const { metadata, lineItems, adjustments, people } = receipt
-  const [newPersonName, setNewPersonName] = useState("")
-  const [isAddPersonDialogOpen, setIsAddPersonDialogOpen] = useState(false)
-  const [showImageDialog, setShowImageDialog] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
+  const [isAddPersonDialogOpen, setIsAddPersonDialogOpen] = useState(false)
+  const [isCustomerSectionExpanded, setIsCustomerSectionExpanded] = useState(false)
+
+  // Add state for confirm dialog
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
+  const [personToRemove, setPersonToRemove] = useState<Person | null>(null)
 
   useEffect(() => {
     const savedScrollPosition = sessionStorage.getItem("scrollPosition")
@@ -42,11 +62,29 @@ export default function DisplayView({
     }
   }, [])
 
-  const handleAddPerson = () => {
-    if (newPersonName.trim()) {
-      onAddPerson(newPersonName)
-      setNewPersonName("")
-      setIsAddPersonDialogOpen(false)
+  const handleAddPerson = (name: string) => {
+    if (name.trim()) {
+      const person: Person = {
+        id: generateId(),
+        name: name.trim(),
+      }
+
+      onAddPerson(person)
+    }
+  }
+
+  // Updated remove person handler
+  const handleRemovePersonClick = (person: Person) => {
+    setPersonToRemove(person)
+    setIsConfirmDialogOpen(true)
+  }
+
+  // New method to confirm removal
+  const confirmRemovePerson = () => {
+    if (personToRemove) {
+      onRemovePerson(personToRemove.id)
+      setPersonToRemove(null)
+      setIsConfirmDialogOpen(false)
     }
   }
 
@@ -95,6 +133,137 @@ export default function DisplayView({
           </p>
         )}
       </CardHeader>
+
+      {/* Customer section moved to the top, after header */}
+      <div className="border-b border-dashed border-gray-300">
+        <Button
+          variant="ghost"
+          onClick={() => setIsCustomerSectionExpanded(!isCustomerSectionExpanded)}
+          className="w-full py-2 px-1 md:px-4 flex items-center justify-between hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+        >
+          <div className="flex items-center gap-1.5 px-4">
+            <Users className="h-4 w-4" />
+            <span className="text-sm font-bold uppercase">Customers ({receipt.people.length})</span>
+          </div>
+
+          {/* Minimized preview of avatars when collapsed */}
+          {!isCustomerSectionExpanded && receipt.people.length > 0 && (
+            <div className="flex items-center px-4">
+              <div className="flex -space-x-2 mr-2">
+                {receipt.people.slice(0, 3).map((person, index) => (
+                  <Avatar key={person.id} className="w-5 h-5 border border-white">
+                    <AvatarFallback
+                      className="text-white text-[10px]"
+                      style={{ backgroundColor: getColorForPerson(index) }}
+                    >
+                      {person.name[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+                {receipt.people.length > 3 && (
+                  <div className="z-10 w-5 h-5 rounded-full bg-gray-200 text-[10px] flex items-center justify-center border border-white text-gray-600">
+                    +{receipt.people.length - 3}
+                  </div>
+                )}
+              </div>
+              <motion.div initial={{ rotate: 0 }} animate={{ rotate: 0 }} className="h-4 w-4">
+                <ChevronDown className="h-4 w-4" />
+              </motion.div>
+            </div>
+          )}
+
+          {/* Just show the chevron when expanded */}
+          {(isCustomerSectionExpanded || receipt.people.length === 0) && (
+            <motion.div
+              initial={{ rotate: 0 }}
+              animate={{ rotate: 180 }}
+              transition={{ duration: 0.3 }}
+              className="h-4 w-4 mr-4"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </motion.div>
+          )}
+        </Button>
+
+        {/* Expandable content with animation */}
+        <AnimatePresence>
+          {isCustomerSectionExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="pt-1 pb-3 px-4 md:px-6 border-t border-dotted border-gray-200">
+                {receipt.people.length === 0 ? (
+                  <div className="text-center py-2 text-gray-500 text-sm italic">
+                    No customers added yet
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-1 gap-y-1 pt-1">
+                    {receipt.people.map((person, index) => (
+                      <motion.div
+                        key={person.id}
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: index * 0.05 }}
+                        className="flex justify-between items-center py-1.5 px-2 text-sm border-b border-dotted border-gray-100"
+                      >
+                        <div className="flex items-center">
+                          <Avatar className="w-5 h-5 mr-2">
+                            <AvatarFallback
+                              className="text-white text-[10px]"
+                              style={{ backgroundColor: getColorForPerson(index) }}
+                            >
+                              {person.name[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs">{person.name}</span>
+                        </div>
+
+                        {!readOnly && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 hover:bg-transparent"
+                            onClick={() => handleRemovePersonClick(person)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="flex justify-center mt-3"
+                >
+                  <AddPersonDialog
+                    open={isAddPersonDialogOpen}
+                    onOpenChange={setIsAddPersonDialogOpen}
+                    onAddPerson={handleAddPerson}
+                    triggerButton={
+                      <Button
+                        variant="ghost"
+                        className="text-xs border border-dashed border-gray-200 py-1.5 px-3 rounded-sm hover:bg-gray-50"
+                      >
+                        <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                        ADD CUSTOMER
+                      </Button>
+                    }
+                  />
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       <CardContent className="p-2 md:p-4 space-y-2" ref={contentRef}>
         <div className="space-y-2">
           {lineItems.map((item) => (
@@ -174,51 +343,26 @@ export default function DisplayView({
           </div>
         )}
       </CardContent>
-      <div className="border-t border-dashed border-gray-300 p-4 px-5 md:px-8">
-        <h3 className="font-bold mb-2">People</h3>
-        <div className="flex flex-wrap gap-2">
-          {receipt.people.map((person) => (
-            <Button
-              key={person.id}
-              variant="ghost"
-              className="text-xs bg-gray-100 px-1 py-1 h-auto rounded"
-              onClick={() => onRemovePerson(person.id)}
-            >
-              {person.name} <X className="w-2 h-2" />
-            </Button>
-          ))}
-          <Dialog open={isAddPersonDialogOpen} onOpenChange={setIsAddPersonDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add Person
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle className="font-mono">Add a new person</DialogTitle>
-              </DialogHeader>
-              <div className="flex items-center space-x-2">
-                <Input
-                  placeholder="Enter name"
-                  value={newPersonName}
-                  onChange={(e) => setNewPersonName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleAddPerson()
-                    }
-                  }}
-                />
-                <Button onClick={handleAddPerson}>Add</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+
       <CardFooter className="flex justify-between items-center border-t border-dashed border-gray-300 p-4 px-6">
         <span className="font-bold">Total</span>
         <span className="font-bold text-lg">{formatCurrency(calculateReceiptTotal(receipt))}</span>
       </CardFooter>
+
+      {/* Add confirmation dialog */}
+      <ConfirmDialog
+        open={isConfirmDialogOpen}
+        onOpenChange={setIsConfirmDialogOpen}
+        onConfirm={confirmRemovePerson}
+        onCancel={() => {
+          setPersonToRemove(null)
+          setIsConfirmDialogOpen(false)
+        }}
+        title="Remove Customer"
+        description={`Are you sure you want to remove ${personToRemove?.name || ""} from this bill? Any items assigned to them will become unallocated.`}
+        confirmText="REMOVE"
+        cancelText="CANCEL"
+      />
     </Card>
   )
 }

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import type { Receipt, Person } from "@/lib/types"
 import { getColorForPerson } from "@/lib/colors"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { AlertTriangle, ChevronDown, ChevronUp, InfoIcon, Share2 } from "lucide-react"
 import {
   calculateAdjustmentAmount,
   calculatePersonTotal,
@@ -18,6 +18,8 @@ import {
 
 type Props = {
   receipt: Receipt
+  highlightPersonId?: string
+  shareUrl?: string
 }
 
 type ItemSummary = {
@@ -25,8 +27,8 @@ type ItemSummary = {
   amount: number
 }
 
-export default function SummaryView({ receipt }: Props) {
-  const [expandedPerson, setExpandedPerson] = useState<string | null>(null)
+export default function SummaryView({ receipt, highlightPersonId, shareUrl }: Props) {
+  const [expandedPerson, setExpandedPerson] = useState<string | null>(highlightPersonId || null)
 
   const getPersonItems = (personId: string): ItemSummary[] => {
     const lineItems = receipt.lineItems
@@ -54,6 +56,16 @@ export default function SummaryView({ receipt }: Props) {
     return [...lineItems, ...adjustmentItems]
   }
 
+  const unaccountedItems = [
+    ...receipt.lineItems.filter(
+      (item) => !item.splitting?.portions.some((p) => p.personId === highlightPersonId)
+    ),
+    ...receipt.adjustments.filter(
+      (adjustment) =>
+        adjustment.splitting.method === "manual" && adjustment.splitting.portions?.length === 0
+    ),
+  ]
+
   return (
     <Card className={"receipt w-full max-w-lg mx-auto font-mono text-sm"}>
       <CardHeader className="text-center border-b border-dashed border-gray-300">
@@ -63,10 +75,12 @@ export default function SummaryView({ receipt }: Props) {
       </CardHeader>
       <CardContent className="p-2 space-y-4">
         {receipt.people.map((person: Person, index) => (
-          <div key={person.id} className="border-b border-dashed border-gray-300 pb-2">
+          <div key={person.id} className={`border-b border-dashed border-gray-300 pb-2`}>
             <Button
               variant="ghost"
-              className="w-full flex justify-between items-center"
+              className={`w-full flex justify-between items-center ${
+                highlightPersonId === person.id ? "font-bold" : ""
+              }`}
               onClick={() => setExpandedPerson(expandedPerson === person.id ? null : person.id)}
             >
               <div className="flex items-center space-x-2">
@@ -105,10 +119,78 @@ export default function SummaryView({ receipt }: Props) {
             )}
           </div>
         ))}
+
+        {unaccountedItems.length > 0 && (
+          <div className="mt-2 -mb-4 bg-black text-white p-4 rounded-sm">
+            <h3 className="text-md font-bold mb-2 flex items-center">
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              Unallocated Items
+            </h3>
+            <div className="space-y-1">
+              {unaccountedItems.map((item, index) => (
+                <div key={index} className="flex justify-between text-xs">
+                  <span>{item.name}</span>
+                  <span>
+                    {formatCurrency(
+                      "totalPriceInCents" in item ? item.totalPriceInCents : item.amountInCents
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between text-sm font-bold pt-2 border-t border-gray-700 mt-2">
+              <span>Unallocated Total</span>
+              <span>
+                {formatCurrency(
+                  unaccountedItems.reduce(
+                    (sum, item) =>
+                      sum +
+                      ("totalPriceInCents" in item ? item.totalPriceInCents : item.amountInCents),
+                    0
+                  )
+                )}
+              </span>
+            </div>
+          </div>
+        )}
+        {unaccountedItems.length > 0 && (
+          <div className="border-b border-dashed border-gray-300 pb-2" />
+        )}
         <div className="flex justify-between font-bold text-lg px-4 p-4">
           <span>Total</span>
           <span>{formatCurrency(calculateReceiptTotal(receipt))}</span>
         </div>
+
+        {shareUrl && (
+          <div className="mt-6 pt-2 text-center">
+            <div className="border-t border-b border-dashed border-gray-300 py-3">
+              <p className="text-xs uppercase font-bold mb-1">Share This Receipt</p>
+              <div className="flex flex-col items-center">
+                <Button
+                  variant="ghost"
+                  className="text-xs px-6 py-2 border border-gray-300 border-dashed hover:bg-gray-50"
+                  onClick={(e) => {
+                    const button = e.currentTarget
+                    const originalText = button.innerText
+                    navigator.clipboard.writeText(shareUrl)
+                    button.innerText = "✓ COPIED"
+                    button.disabled = true
+                    setTimeout(() => {
+                      button.innerText = originalText
+                      button.disabled = false
+                    }, 2000)
+                  }}
+                >
+                  [ PRESS HERE TO COPY LINK ]
+                </Button>
+              </div>
+            </div>
+            <div className="mt-3 text-[0.6rem] text-gray-500">
+              <p>*** THANK YOU FOR USING BILL-SPLIT ***</p>
+              <p className="mt-1">RECEIPT ID: {shareUrl.split("/").pop() || "XXXXXXXX"}</p>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

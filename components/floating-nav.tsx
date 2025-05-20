@@ -1,33 +1,37 @@
 import { Button } from "@/components/ui/button"
 import { AnimatePresence, motion } from "framer-motion"
-import { ArrowLeft, Check, Edit, FileText, Scissors, Cloud } from "lucide-react"
+import { Check, Edit, FileText, Scissors, Cloud, Share2, Copy } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useStandalone } from "@/hooks/use-standalone"
 import { cn } from "@/lib/utils"
 import { TutorialTooltip } from "./tutorial-tooltips"
+import { RefreshButton } from "./refresh-button"
 
 type FloatingNavProps = {
-  currentView: "display" | "edit" | "summary" | "split"
-  onViewChange: (view: "display" | "edit" | "summary" | "split") => void
+  hideEdit?: boolean
+  currentView: string
+  onViewChange: (view: "summary" | "edit" | "display" | "split") => void
   onBack?: () => void
   scrollToBottomButton?: boolean
-  onMoveToCloud?: () => Promise<string | null>
-  isDebugMode?: boolean
+  isCloud?: boolean
+  onRefresh?: () => Promise<void>
+  loading?: boolean
 }
 
 export default function FloatingNav({
+  hideEdit = false,
   currentView,
   onViewChange,
   scrollToBottomButton,
-  onMoveToCloud,
-  isDebugMode = false,
+  isCloud,
+  onRefresh,
+  loading,
 }: FloatingNavProps) {
   const [showSaveButton, setShowSaveButton] = useState(false)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const isStandalone = useStandalone()
-  const [isMovingToCloud, setIsMovingToCloud] = useState(false)
 
-  const [tutorialStep, setTutorialStep] = useState(0)
+  const [tutorialStep, setTutorialStep] = useState(hideEdit ? 1 : 0)
   const [isTutorialOpen, setIsTutorialOpen] = useState(() => {
     return localStorage.getItem("tutorial-completed") !== "true"
   })
@@ -68,23 +72,6 @@ export default function FloatingNav({
     setIsTutorialOpen(false)
     setTutorialStep(0)
     localStorage.setItem("tutorial-completed", "true")
-  }
-
-  const handleMoveToCloud = async () => {
-    if (!onMoveToCloud) return
-
-    try {
-      setIsMovingToCloud(true)
-      const cloudId = await onMoveToCloud()
-      if (cloudId) {
-        // Show success message in console
-        console.log(`Receipt moved to cloud with ID: ${cloudId}`)
-      }
-    } catch (error) {
-      console.error("Failed to move receipt to cloud:", error)
-    } finally {
-      setIsMovingToCloud(false)
-    }
   }
 
   useEffect(() => {
@@ -156,37 +143,6 @@ export default function FloatingNav({
         </motion.div>
       )}
 
-      {/* Debug button for moveToCloud */}
-      {!isInputFocused && isDebugMode && onMoveToCloud && (
-        <motion.div
-          key="debug-cloud-button"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-          className={cn({
-            "fixed left-4 md:left-8": true,
-            "bottom-4": !isStandalone,
-            "bottom-8": isStandalone,
-          })}
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleMoveToCloud}
-            disabled={isMovingToCloud}
-            className="rounded-full bg-blue-50 hover:bg-blue-100 border-blue-200"
-          >
-            {isMovingToCloud ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>
-            ) : (
-              <Cloud className="h-4 w-4 mr-1 text-blue-500" />
-            )}
-            <span className="text-xs text-blue-700">Move to Cloud</span>
-          </Button>
-        </motion.div>
-      )}
-
       {!isInputFocused && (
         <motion.div
           key="input-focused"
@@ -201,29 +157,31 @@ export default function FloatingNav({
             "bottom-8": isStandalone,
           })}
         >
-          <TutorialTooltip
-            content={tutorialContent[1].content}
-            title={tutorialContent[1].title}
-            open={isTutorialOpen && tutorialStep === 1}
-            onOpenChange={() => {}}
-            step={tutorialStep + 1}
-            totalSteps={tutorialContent.length}
-            onNext={handleNext}
-            onPrevious={handlePrevious}
-            onClose={handleClose}
-          >
-            <Button
-              variant={currentView === "edit" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => !isTutorialOpen && onViewChange("edit")}
-              className={cn("rounded-full", {
-                "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === 1,
-              })}
+          {!hideEdit && (
+            <TutorialTooltip
+              content={tutorialContent[1].content}
+              title={tutorialContent[1].title}
+              open={isTutorialOpen && tutorialStep === 1}
+              onOpenChange={() => {}}
+              step={tutorialStep + 1}
+              totalSteps={tutorialContent.length}
+              onNext={handleNext}
+              onPrevious={handlePrevious}
+              onClose={handleClose}
             >
-              <Edit className="h-4 w-4 mr-1" />
-              <span className="sr-only md:not-sr-only">Edit</span>
-            </Button>
-          </TutorialTooltip>
+              <Button
+                variant={currentView === "edit" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => !isTutorialOpen && onViewChange("edit")}
+                className={cn("rounded-full", {
+                  "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === 1,
+                })}
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                <span className="sr-only md:not-sr-only">Edit</span>
+              </Button>
+            </TutorialTooltip>
+          )}
           <TutorialTooltip
             content={tutorialContent[0].content}
             open={isTutorialOpen && tutorialStep === 0}
@@ -270,6 +228,9 @@ export default function FloatingNav({
               <span className="sr-only md:not-sr-only">Summary</span>
             </Button>
           </TutorialTooltip>
+          {isCloud && onRefresh && (
+            <RefreshButton isCloud={true} onRefresh={onRefresh} loading={loading} />
+          )}
         </motion.div>
       )}
     </AnimatePresence>

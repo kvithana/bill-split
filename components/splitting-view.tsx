@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Plus, Minus, Percent, Equal, Sliders, UserPlus, UserMinus } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import type { Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
+import type { Receipt, ReceiptAdjustment, ReceiptLineItem, Person } from "@/lib/types"
 import * as R from "ramda"
 import { getColorForPerson } from "@/lib/colors"
+import { generateId } from "@/lib/id"
 
 export default function SplittingView({
   receipt,
@@ -24,7 +25,7 @@ export default function SplittingView({
   onUpdateLineItems: (lineItems: ReceiptLineItem[]) => void
   onUpdateAdjustments: (adjustments: ReceiptAdjustment[]) => void
   onBack: () => void
-  onAddPerson: (name: string) => void
+  onAddPerson: (person: Person) => void
 }) {
   const [editedReceipt, setEditedReceipt] = useState(receipt)
   const [newPersonName, setNewPersonName] = useState("")
@@ -113,7 +114,16 @@ export default function SplittingView({
 
   const addPerson = () => {
     if (!newPersonName.trim()) return
-    onAddPerson(newPersonName)
+
+    // Create a person object
+    const person: Person = {
+      id: generateId(),
+      name: newPersonName.trim(),
+    }
+
+    // Pass the person object to the handler
+    onAddPerson(person)
+
     setNewPersonName("")
   }
 

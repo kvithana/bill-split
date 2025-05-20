@@ -5,8 +5,7 @@ import DisplayView from "./display-view"
 import EditItemsView from "./edit-items-view"
 import SplittingView from "./splitting-view"
 import SummaryView from "./summary-view"
-import { Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
-import { generateId } from "@/lib/id"
+import { Person, Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
 import FloatingNav from "./floating-nav"
 import { toast } from "@/hooks/use-toast"
 import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
@@ -63,9 +62,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   const [isReceiptMounted, setIsReceiptMounted] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
   const isStandalone = useStandalone()
-
-  // Check if debug mode is enabled, default to false
-  const isDebugMode = process.env.NODE_ENV === "development"
+  const [loading, setLoading] = useState(false)
 
   const screenId = viewMode === "split" ? viewMode + selectedItemId : viewMode
 
@@ -124,9 +121,9 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     handleViewChange("split")
   }
 
-  const addPerson = async (name: string) => {
+  const addPerson = async (person: Person) => {
     try {
-      const person = { id: generateId(), name }
+      setLoading(true)
       await addPersonAction(person)
     } catch (err) {
       toast({
@@ -134,11 +131,14 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
         description: err instanceof Error ? err.message : "An unknown error occurred",
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 
   const removePerson = async (personId: string) => {
     try {
+      setLoading(true)
       await removePersonAction(personId)
     } catch (err) {
       toast({
@@ -146,11 +146,14 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
         description: err instanceof Error ? err.message : "An unknown error occurred",
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 
   const updateLineItems = async (lineItems: ReceiptLineItem[]) => {
     try {
+      setLoading(true)
       await updateLineItemsAction(lineItems)
       handleViewChange("display")
     } catch (err) {
@@ -159,11 +162,14 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
         description: err instanceof Error ? err.message : "An unknown error occurred",
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 
   const updateAdjustments = async (adjustments: ReceiptAdjustment[]) => {
     try {
+      setLoading(true)
       await updateAdjustmentsAction(adjustments)
       handleViewChange("display")
     } catch (err) {
@@ -172,6 +178,8 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
         description: err instanceof Error ? err.message : "An unknown error occurred",
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -191,23 +199,6 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     // Skip validation if receipt is not loaded yet
     if (!receipt) return
 
-    if (newView === "summary") {
-      const isFullySplit =
-        receipt.lineItems
-          .filter((item) => item.totalPriceInCents > 0)
-          .every((item) => (item.splitting?.portions || []).length > 0) &&
-        receipt.adjustments.every((adj) =>
-          adj.splitting.method === "manual" ? (adj.splitting.portions || []).length > 0 : true
-        )
-      if (!isFullySplit) {
-        toast({
-          title: "Some items are not split",
-          description: "Please split all items before viewing the summary.",
-          variant: "destructive",
-        })
-        return
-      }
-    }
     if (viewMode === "edit") {
       setHasEditChanges(false)
     }
@@ -223,7 +214,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
       <AnimatePresence>
         {isVisible && (
           <motion.div
-            className="flex w-full p-4 pl-0"
+            className="flex w-full p-4 pl-0 pr-0"
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
@@ -256,7 +247,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
             custom={fromScan}
             onAnimationComplete={() => setIsReceiptMounted(true)}
           >
-            {isLoading || !receipt ? (
+            {!receipt && isLoading ? (
               <div className="flex flex-col items-center justify-center min-h-[300px] py-12">
                 <Loader2 className="h-8 w-8 text-primary animate-spin mb-4" />
                 <p className="text-gray-500">Loading receipt...</p>
@@ -265,7 +256,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
               <>
                 {viewMode === "display" && (
                   <DisplayView
-                    receipt={receipt}
+                    receipt={receipt!}
                     onItemSelect={handleItemSelect}
                     onAddPerson={addPerson}
                     onRemovePerson={removePerson}
@@ -274,14 +265,14 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
                 {viewMode === "edit" && (
                   <EditItemsView
                     setHasEditChanges={setHasEditChanges}
-                    receipt={receipt}
+                    receipt={receipt!}
                     onSave={handleSave}
                     isSaving={isSaving}
                   />
                 )}
                 {viewMode === "split" && selectedItemId && (
                   <SplittingView
-                    receipt={receipt}
+                    receipt={receipt!}
                     itemId={selectedItemId}
                     onUpdateLineItems={updateLineItems}
                     onUpdateAdjustments={updateAdjustments}
@@ -289,20 +280,22 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
                     onAddPerson={addPerson}
                   />
                 )}
-                {viewMode === "summary" && <SummaryView receipt={receipt} />}
+                {viewMode === "summary" && <SummaryView receipt={receipt!} />}
               </>
             )}
           </motion.div>
         )}
       </AnimatePresence>
+
       {showNav && receipt && (
         <FloatingNav
           currentView={viewMode}
           onViewChange={handleViewChange}
           onBack={() => setIsVisible(false)}
           scrollToBottomButton={hasEditChanges}
-          onMoveToCloud={moveToCloud}
-          isDebugMode={isDebugMode}
+          isCloud={receipt?.isShared === true}
+          onRefresh={refresh}
+          loading={loading}
         />
       )}
     </div>
