@@ -32,9 +32,8 @@ export function RefreshButton({ isCloud, onRefresh, className, loading }: Refres
   return (
     <Button
       variant="outline"
-      size="icon"
       className={cn(
-        "fixed bottom-6 right-6 rounded-full shadow-md bg-white border-gray-200 z-10",
+        "fixed bottom-6 right-6 rounded-full shadow-md bg-white border-gray-200 z-10 px-4 py-2 gap-2",
         isRefreshing && "opacity-70",
         loading && "opacity-70",
         className
@@ -50,6 +49,7 @@ export function RefreshButton({ isCloud, onRefresh, className, loading }: Refres
           loading && "animate-spin"
         )}
       />
+      <span className="text-xs font-medium">Refresh</span>
     </Button>
   )
 }
