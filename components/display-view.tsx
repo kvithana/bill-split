@@ -47,7 +47,7 @@ export default function DisplayView({
   onRemovePerson: (id: string) => void
   onAddPerson: (person: Person) => Promise<void>
   isOwner?: boolean
-  onMakeCollaborative?: () => Promise<any>
+  onMakeCollaborative?: () => Promise<{ receiptId: string; shareKey: string } | null>
 }) {
   const { metadata, lineItems, adjustments, people } = receipt
   const contentRef = useRef<HTMLDivElement>(null)

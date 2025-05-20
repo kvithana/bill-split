@@ -9,7 +9,7 @@ import { Receipt } from "@/lib/types"
 interface ShareReceiptButtonProps {
   receipt: Receipt
   isOwner: boolean
-  onMakeCollaborative?: () => Promise<any>
+  onMakeCollaborative?: () => Promise<{ receiptId: string; shareKey: string } | null>
 }
 
 export function ShareReceiptButton({

@@ -15,7 +15,7 @@ import { motion } from "framer-motion"
 interface ShareReceiptDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onShare: () => Promise<any>
+  onShare: () => Promise<void>
   isSharing: boolean
   triggerButton?: React.ReactNode
 }

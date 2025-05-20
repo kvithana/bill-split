@@ -23,7 +23,7 @@ type Props = {
   highlightPersonId?: string
   shareUrl?: string
   isOwner?: boolean
-  onMakeCollaborative?: () => Promise<any>
+  onMakeCollaborative?: () => Promise<{ receiptId: string; shareKey: string } | null>
 }
 
 type ItemSummary = {
