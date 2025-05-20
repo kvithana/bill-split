@@ -1,23 +1,22 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import DisplayView from "./display-view"
 import EditItemsView from "./edit-items-view"
 import SplittingView from "./splitting-view"
 import SummaryView from "./summary-view"
-import { Receipt, ReceiptAdjustment, ReceiptLineItem, ReceiptSchema } from "@/lib/types"
-import { useReceiptStore } from "@/data/state"
-import useStore from "@/hooks/use-store"
+import { Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
 import { generateId } from "@/lib/id"
 import FloatingNav from "./floating-nav"
 import { toast } from "@/hooks/use-toast"
-import { AlertCircle, ArrowLeft } from "lucide-react"
+import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "./ui/button"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { EmptyState } from "./empty-state"
 import { cn } from "@/lib/utils"
 import { useStandalone } from "@/hooks/use-standalone"
+import { useReceipt } from "@/hooks/use-receipt"
 
 type ViewMode = "display" | "edit" | "split" | "summary"
 
@@ -42,21 +41,31 @@ const slideVariants = {
 }
 
 export default function ReceiptContainer({ id, fromScan }: { id: string; fromScan: boolean }) {
-  const [receipt] = useStore((state) => state.receipts[id])
-  const addPersonAction = useReceiptStore((state) => state.addPerson)
-  const removePersonAction = useReceiptStore((state) => state.removePerson)
-  const updateLineItemsAction = useReceiptStore((state) => state.updateLineItems)
-  const updateAdjustmentsAction = useReceiptStore((state) => state.updateAdjustments)
-  const setReceipt = useReceiptStore((state) => state.updateReceipt)
+  const {
+    receipt,
+    isLoading,
+    error,
+    updateLineItems: updateLineItemsAction,
+    updateAdjustments: updateAdjustmentsAction,
+    addPerson: addPersonAction,
+    removePerson: removePersonAction,
+    moveToCloud,
+    refresh,
+  } = useReceipt(id)
+
   const [viewMode, setViewMode] = useState<ViewMode>("display")
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [scrollPosition, setScrollPosition] = useState<{ [key: string]: number }>({})
   const [hasEditChanges, setHasEditChanges] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const router = useRouter()
   const [showNav, setShowNav] = useState(false)
   const [isReceiptMounted, setIsReceiptMounted] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
   const isStandalone = useStandalone()
+
+  // Check if debug mode is enabled, default to false
+  const isDebugMode = process.env.NODE_ENV === "development"
 
   const screenId = viewMode === "split" ? viewMode + selectedItemId : viewMode
 
@@ -85,9 +94,29 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     }
   }, [isVisible, router])
 
-  const handleSave = (updatedReceipt: Receipt) => {
-    setReceipt(id, ReceiptSchema.parse(updatedReceipt))
-    handleViewChange("display")
+  const handleSave = async (updatedReceipt: Receipt) => {
+    try {
+      setIsSaving(true)
+      await updateLineItemsAction(updatedReceipt.lineItems)
+      await updateAdjustmentsAction(updatedReceipt.adjustments)
+
+      handleViewChange("display")
+      await refresh()
+
+      toast({
+        title: "Changes saved successfully",
+        description: "Your receipt has been updated.",
+        duration: 2000,
+      })
+    } catch (err) {
+      toast({
+        title: "Failed to save changes",
+        description: err instanceof Error ? err.message : "An unknown error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleItemSelect = (itemId: string) => {
@@ -95,36 +124,73 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     handleViewChange("split")
   }
 
-  const addPerson = (name: string) => {
-    addPersonAction(id, { id: generateId(), name })
+  const addPerson = async (name: string) => {
+    try {
+      const person = { id: generateId(), name }
+      await addPersonAction(person)
+    } catch (err) {
+      toast({
+        title: "Failed to add person",
+        description: err instanceof Error ? err.message : "An unknown error occurred",
+        variant: "destructive",
+      })
+    }
   }
 
-  const removePerson = (personId: string) => {
-    removePersonAction(id, personId)
+  const removePerson = async (personId: string) => {
+    try {
+      await removePersonAction(personId)
+    } catch (err) {
+      toast({
+        title: "Failed to remove person",
+        description: err instanceof Error ? err.message : "An unknown error occurred",
+        variant: "destructive",
+      })
+    }
   }
 
-  const updateLineItems = (lineItems: ReceiptLineItem[]) => {
-    updateLineItemsAction(id, lineItems)
-    handleViewChange("display")
+  const updateLineItems = async (lineItems: ReceiptLineItem[]) => {
+    try {
+      await updateLineItemsAction(lineItems)
+      handleViewChange("display")
+    } catch (err) {
+      toast({
+        title: "Failed to update items",
+        description: err instanceof Error ? err.message : "An unknown error occurred",
+        variant: "destructive",
+      })
+    }
   }
 
-  const updateAdjustments = (adjustments: ReceiptAdjustment[]) => {
-    updateAdjustmentsAction(id, adjustments)
-    handleViewChange("display")
+  const updateAdjustments = async (adjustments: ReceiptAdjustment[]) => {
+    try {
+      await updateAdjustmentsAction(adjustments)
+      handleViewChange("display")
+    } catch (err) {
+      toast({
+        title: "Failed to update adjustments",
+        description: err instanceof Error ? err.message : "An unknown error occurred",
+        variant: "destructive",
+      })
+    }
   }
 
-  if (!receipt) {
+  // Show error state if there's an error or no receipt
+  if (error || (!isLoading && !receipt)) {
     return (
       <EmptyState
         icon={<AlertCircle className="w-12 h-12 text-gray-400" />}
         title="Receipt not found"
-        description="The receipt you're looking for doesn't exist"
+        description={error || "The receipt you're looking for doesn't exist"}
         delay={1}
       />
     )
   }
 
   const handleViewChange = (newView: ViewMode) => {
+    // Skip validation if receipt is not loaded yet
+    if (!receipt) return
+
     if (newView === "summary") {
       const isFullySplit =
         receipt.lineItems
@@ -190,41 +256,53 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
             custom={fromScan}
             onAnimationComplete={() => setIsReceiptMounted(true)}
           >
-            {viewMode === "display" && (
-              <DisplayView
-                receipt={receipt}
-                onItemSelect={handleItemSelect}
-                onAddPerson={addPerson}
-                onRemovePerson={removePerson}
-              />
+            {isLoading || !receipt ? (
+              <div className="flex flex-col items-center justify-center min-h-[300px] py-12">
+                <Loader2 className="h-8 w-8 text-primary animate-spin mb-4" />
+                <p className="text-gray-500">Loading receipt...</p>
+              </div>
+            ) : (
+              <>
+                {viewMode === "display" && (
+                  <DisplayView
+                    receipt={receipt}
+                    onItemSelect={handleItemSelect}
+                    onAddPerson={addPerson}
+                    onRemovePerson={removePerson}
+                  />
+                )}
+                {viewMode === "edit" && (
+                  <EditItemsView
+                    setHasEditChanges={setHasEditChanges}
+                    receipt={receipt}
+                    onSave={handleSave}
+                    isSaving={isSaving}
+                  />
+                )}
+                {viewMode === "split" && selectedItemId && (
+                  <SplittingView
+                    receipt={receipt}
+                    itemId={selectedItemId}
+                    onUpdateLineItems={updateLineItems}
+                    onUpdateAdjustments={updateAdjustments}
+                    onBack={() => handleViewChange("display")}
+                    onAddPerson={addPerson}
+                  />
+                )}
+                {viewMode === "summary" && <SummaryView receipt={receipt} />}
+              </>
             )}
-            {viewMode === "edit" && (
-              <EditItemsView
-                setHasEditChanges={setHasEditChanges}
-                receipt={receipt}
-                onSave={handleSave}
-              />
-            )}
-            {viewMode === "split" && selectedItemId && (
-              <SplittingView
-                receipt={receipt}
-                itemId={selectedItemId}
-                onUpdateLineItems={updateLineItems}
-                onUpdateAdjustments={updateAdjustments}
-                onBack={() => handleViewChange("display")}
-                onAddPerson={addPerson}
-              />
-            )}
-            {viewMode === "summary" && <SummaryView receipt={receipt} />}
           </motion.div>
         )}
       </AnimatePresence>
-      {showNav && (
+      {showNav && receipt && (
         <FloatingNav
           currentView={viewMode}
           onViewChange={handleViewChange}
           onBack={() => setIsVisible(false)}
           scrollToBottomButton={hasEditChanges}
+          onMoveToCloud={moveToCloud}
+          isDebugMode={isDebugMode}
         />
       )}
     </div>

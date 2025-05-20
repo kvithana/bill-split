@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { AnimatePresence, motion } from "framer-motion"
-import { ArrowLeft, Check, Edit, FileText, Scissors } from "lucide-react"
+import { ArrowLeft, Check, Edit, FileText, Scissors, Cloud } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useStandalone } from "@/hooks/use-standalone"
 import { cn } from "@/lib/utils"
@@ -11,16 +11,21 @@ type FloatingNavProps = {
   onViewChange: (view: "display" | "edit" | "summary" | "split") => void
   onBack?: () => void
   scrollToBottomButton?: boolean
+  onMoveToCloud?: () => Promise<string | null>
+  isDebugMode?: boolean
 }
 
 export default function FloatingNav({
   currentView,
   onViewChange,
   scrollToBottomButton,
+  onMoveToCloud,
+  isDebugMode = false,
 }: FloatingNavProps) {
   const [showSaveButton, setShowSaveButton] = useState(false)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const isStandalone = useStandalone()
+  const [isMovingToCloud, setIsMovingToCloud] = useState(false)
 
   const [tutorialStep, setTutorialStep] = useState(0)
   const [isTutorialOpen, setIsTutorialOpen] = useState(() => {
@@ -63,6 +68,23 @@ export default function FloatingNav({
     setIsTutorialOpen(false)
     setTutorialStep(0)
     localStorage.setItem("tutorial-completed", "true")
+  }
+
+  const handleMoveToCloud = async () => {
+    if (!onMoveToCloud) return
+
+    try {
+      setIsMovingToCloud(true)
+      const cloudId = await onMoveToCloud()
+      if (cloudId) {
+        // Show success message in console
+        console.log(`Receipt moved to cloud with ID: ${cloudId}`)
+      }
+    } catch (error) {
+      console.error("Failed to move receipt to cloud:", error)
+    } finally {
+      setIsMovingToCloud(false)
+    }
   }
 
   useEffect(() => {
@@ -130,6 +152,37 @@ export default function FloatingNav({
           >
             <Check className="h-5 w-5" />
             <span className="sr-only">Scroll to bottom</span>
+          </Button>
+        </motion.div>
+      )}
+
+      {/* Debug button for moveToCloud */}
+      {!isInputFocused && isDebugMode && onMoveToCloud && (
+        <motion.div
+          key="debug-cloud-button"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+          className={cn({
+            "fixed left-4 md:left-8": true,
+            "bottom-4": !isStandalone,
+            "bottom-8": isStandalone,
+          })}
+        >
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMoveToCloud}
+            disabled={isMovingToCloud}
+            className="rounded-full bg-blue-50 hover:bg-blue-100 border-blue-200"
+          >
+            {isMovingToCloud ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>
+            ) : (
+              <Cloud className="h-4 w-4 mr-1 text-blue-500" />
+            )}
+            <span className="text-xs text-blue-700">Move to Cloud</span>
           </Button>
         </motion.div>
       )}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { useReceiptStore } from "@/data/state"
 import { Receipt, ReceiptLineItem, ReceiptAdjustment, Person } from "@/lib/types"
 import { getDeviceId } from "@/lib/device-id"
@@ -34,68 +34,102 @@ export function useReceipt(receiptId: string): UseReceiptResult {
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Get store methods
-  const localReceipt = useReceiptStore(
-    useCallback((state) => state.receipts[receiptId], [receiptId])
+  // Use a ref to track if we're currently fetching to prevent double fetches
+  const [isFetching, setIsFetching] = useState(false)
+
+  // Memoize the selector function to avoid recreation on each render
+  const receiptSelector = useCallback(
+    (state: { receipts: Record<string, Receipt> }) => state.receipts[receiptId],
+    [receiptId]
   )
-  const updateLocalLineItems = useReceiptStore((state) => state.updateLineItems)
-  const updateLocalAdjustments = useReceiptStore((state) => state.updateAdjustments)
-  const addLocalPerson = useReceiptStore((state) => state.addPerson)
-  const removeLocalPerson = useReceiptStore((state) => state.removePerson)
+
+  // Get state from Zustand with memoized selectors
+  const localReceipt = useReceiptStore(receiptSelector)
+
+  // Memoize the store actions to prevent re-renders when the component re-renders
+  // but the store hasn't changed
+  const storeActions = useMemo(() => {
+    return {
+      updateLineItems: useReceiptStore.getState().updateLineItems,
+      updateAdjustments: useReceiptStore.getState().updateAdjustments,
+      addPerson: useReceiptStore.getState().addPerson,
+      removePerson: useReceiptStore.getState().removePerson,
+      updateReceipt: useReceiptStore.getState().updateReceipt,
+    }
+  }, []) // Empty dependency array as we only need these once
+
+  // Check if receipt is a cloud receipt
+  const isReceiptCloud = useCallback((receipt: Receipt | null | undefined) => {
+    return receipt && "isShared" in receipt && receipt.isShared === true
+  }, [])
 
   // Fetch receipt data based on the source
-  const fetchReceipt = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
+  const fetchReceipt = useCallback(
+    async (skipLoadingState = false) => {
+      // Prevent double fetches in progress
+      if (isFetching) return
 
-    try {
-      if (source === "local") {
-        // Local receipts come directly from the store
-        setReceipt(localReceipt || null)
-      } else {
-        // Cloud receipts are fetched from the API
-        const response = await fetch(`/api/receipts/${receiptId}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Device-ID": getDeviceId(),
-          },
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch receipt: ${response.statusText}`)
+      try {
+        // Only set loading state if not skipping and not already loading
+        if (!skipLoadingState) {
+          setIsLoading(true)
         }
+        setIsFetching(true)
+        setError(null)
 
-        const data = await response.json()
-        if (data.success && data.receipt) {
-          setReceipt(data.receipt)
+        if (source === "local") {
+          // Local receipts come directly from the store
+          setReceipt(localReceipt || null)
         } else {
-          throw new Error(data.error || "Unknown error")
+          // Cloud receipts are fetched from the API
+          const response = await fetch(`/api/receipts/${receiptId}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Device-ID": getDeviceId(),
+            },
+          })
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch receipt: ${response.statusText}`)
+          }
+
+          const data = await response.json()
+          if (data.success && data.receipt) {
+            setReceipt(data.receipt)
+          } else {
+            throw new Error(data.error || "Unknown error")
+          }
         }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error")
+        // Fall back to local state if cloud fetch fails
+        if (source === "cloud" && localReceipt) {
+          setReceipt(localReceipt)
+          setSource("local")
+        }
+      } finally {
+        setIsFetching(false)
+        setIsLoading(false)
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error")
-      // Fall back to local state if cloud fetch fails
-      if (source === "cloud" && localReceipt) {
-        setReceipt(localReceipt)
-        setSource("local")
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }, [receiptId, source, localReceipt])
+    },
+    [receiptId, source, localReceipt]
+  ) // Removed isLoading from dependencies
 
-  // Initialize and handle source changes
+  // First determine the source based on receipt properties
   useEffect(() => {
-    // Determine if this is a cloud receipt by checking if it has isShared flag
-    if (localReceipt && "isShared" in localReceipt && localReceipt.isShared === true) {
-      setSource("cloud")
-    } else {
-      setSource("local")
-    }
+    const newSource = isReceiptCloud(localReceipt) ? "cloud" : "local"
 
+    if (newSource !== source) {
+      setSource(newSource)
+    }
+  }, [localReceipt, source, isReceiptCloud])
+
+  // Then fetch the receipt whenever source changes or on initial mount
+  useEffect(() => {
     fetchReceipt()
-  }, [fetchReceipt, localReceipt])
+    // This effect should run when source or fetchReceipt changes
+  }, [source, fetchReceipt])
 
   // Update line items based on the source
   const updateLineItems = useCallback(
@@ -105,10 +139,13 @@ export function useReceipt(receiptId: string): UseReceiptResult {
       try {
         if (source === "local") {
           // Update local state
-          updateLocalLineItems(receiptId, lineItems)
-          // Update the receipt state
+          storeActions.updateLineItems(receiptId, lineItems)
+          // Update the receipt state to immediately reflect changes
           setReceipt((prev) => (prev ? { ...prev, lineItems } : null))
         } else {
+          // For cloud state, set loading to indicate operation in progress
+          setIsLoading(true)
+
           // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/line-items`, {
             method: "PUT",
@@ -123,14 +160,17 @@ export function useReceipt(receiptId: string): UseReceiptResult {
             throw new Error(`Failed to update line items: ${response.statusText}`)
           }
 
-          // Refresh the receipt data from the cloud
-          await fetchReceipt()
+          // Refresh the receipt data from the cloud, but skip setting loading state again
+          await fetchReceipt(true)
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
+      } finally {
+        // Ensure loading is set to false after operation
+        setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, updateLocalLineItems, fetchReceipt]
+    [receipt, source, receiptId, storeActions, fetchReceipt]
   )
 
   // Update adjustments based on the source
@@ -141,10 +181,13 @@ export function useReceipt(receiptId: string): UseReceiptResult {
       try {
         if (source === "local") {
           // Update local state
-          updateLocalAdjustments(receiptId, adjustments)
+          storeActions.updateAdjustments(receiptId, adjustments)
           // Update the receipt state
           setReceipt((prev) => (prev ? { ...prev, adjustments } : null))
         } else {
+          // For cloud state, set loading to indicate operation in progress
+          setIsLoading(true)
+
           // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/adjustments`, {
             method: "PUT",
@@ -159,14 +202,17 @@ export function useReceipt(receiptId: string): UseReceiptResult {
             throw new Error(`Failed to update adjustments: ${response.statusText}`)
           }
 
-          // Refresh the receipt data from the cloud
-          await fetchReceipt()
+          // Refresh the receipt data from the cloud, but skip setting loading state again
+          await fetchReceipt(true)
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
+      } finally {
+        // Ensure loading is set to false after operation
+        setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, updateLocalAdjustments, fetchReceipt]
+    [receipt, source, receiptId, storeActions, fetchReceipt]
   )
 
   // Add a person based on the source
@@ -177,10 +223,13 @@ export function useReceipt(receiptId: string): UseReceiptResult {
       try {
         if (source === "local") {
           // Update local state
-          addLocalPerson(receiptId, person)
+          storeActions.addPerson(receiptId, person)
           // Update the receipt state
           setReceipt((prev) => (prev ? { ...prev, people: [...prev.people, person] } : null))
         } else {
+          // For cloud state, set loading to indicate operation in progress
+          setIsLoading(true)
+
           // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/people`, {
             method: "POST",
@@ -195,14 +244,17 @@ export function useReceipt(receiptId: string): UseReceiptResult {
             throw new Error(`Failed to add person: ${response.statusText}`)
           }
 
-          // Refresh the receipt data from the cloud
-          await fetchReceipt()
+          // Refresh the receipt data from the cloud, but skip setting loading state again
+          await fetchReceipt(true)
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
+      } finally {
+        // Ensure loading is set to false after operation
+        setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, addLocalPerson, fetchReceipt]
+    [receipt, source, receiptId, storeActions, fetchReceipt]
   )
 
   // Remove a person based on the source
@@ -213,7 +265,7 @@ export function useReceipt(receiptId: string): UseReceiptResult {
       try {
         if (source === "local") {
           // Update local state
-          removeLocalPerson(receiptId, personId)
+          storeActions.removePerson(receiptId, personId)
           // Update the receipt state
           setReceipt((prev) =>
             prev
@@ -224,6 +276,9 @@ export function useReceipt(receiptId: string): UseReceiptResult {
               : null
           )
         } else {
+          // For cloud state, set loading to indicate operation in progress
+          setIsLoading(true)
+
           // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/people/${personId}`, {
             method: "DELETE",
@@ -237,14 +292,17 @@ export function useReceipt(receiptId: string): UseReceiptResult {
             throw new Error(`Failed to remove person: ${response.statusText}`)
           }
 
-          // Refresh the receipt data from the cloud
-          await fetchReceipt()
+          // Refresh the receipt data from the cloud, but skip setting loading state again
+          await fetchReceipt(true)
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
+      } finally {
+        // Ensure loading is set to false after operation
+        setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, removeLocalPerson, fetchReceipt]
+    [receipt, source, receiptId, storeActions, fetchReceipt]
   )
 
   // Move a local receipt to the cloud
@@ -286,7 +344,7 @@ export function useReceipt(receiptId: string): UseReceiptResult {
         } as Receipt
 
         // Update local storage with the updated receipt
-        useReceiptStore.getState().updateReceipt(receiptId, updatedReceipt)
+        storeActions.updateReceipt(receiptId, updatedReceipt)
 
         // Update our state
         setReceipt(updatedReceipt)
@@ -302,23 +360,38 @@ export function useReceipt(receiptId: string): UseReceiptResult {
     } finally {
       setIsLoading(false)
     }
-  }, [receipt, source, receiptId])
+  }, [receipt, source, receiptId, storeActions])
 
-  // Force refresh from the source
+  // Force refresh from the source - memoized once and stable
   const refresh = useCallback(async () => {
-    await fetchReceipt()
+    await fetchReceipt(false) // Explicitly set loading state for manual refresh
   }, [fetchReceipt])
 
-  return {
-    receipt,
-    isLoading,
-    error,
-    isCloud: source === "cloud",
-    updateLineItems,
-    updateAdjustments,
-    addPerson,
-    removePerson,
-    moveToCloud,
-    refresh,
-  }
+  // Memoize the return value to avoid unnecessary re-renders in consumers
+  return useMemo(
+    () => ({
+      receipt,
+      isLoading,
+      error,
+      isCloud: source === "cloud",
+      updateLineItems,
+      updateAdjustments,
+      addPerson,
+      removePerson,
+      moveToCloud,
+      refresh,
+    }),
+    [
+      receipt,
+      isLoading,
+      error,
+      source,
+      updateLineItems,
+      updateAdjustments,
+      addPerson,
+      removePerson,
+      moveToCloud,
+      refresh,
+    ]
+  )
 }

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Plus, X } from "lucide-react"
+import { Loader2, Plus, X } from "lucide-react"
 import type { Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
@@ -13,10 +13,12 @@ export default function EditItemsView({
   receipt,
   setHasEditChanges,
   onSave,
+  isSaving = false,
 }: {
   receipt: Receipt
   setHasEditChanges: (hasEditChanges: boolean) => void
   onSave: (receipt: Receipt) => void
+  isSaving?: boolean
 }) {
   const [editedReceipt, setEditedReceipt] = useState({
     ...receipt,
@@ -169,11 +171,6 @@ export default function EditItemsView({
         })),
       }
       onSave(updatedReceipt)
-      toast({
-        title: "Changes saved successfully",
-        description: "Your receipt has been updated.",
-        duration: 2000,
-      })
     } else {
       toast({
         title: "Validation error",
@@ -293,7 +290,8 @@ export default function EditItemsView({
         </span>
       </CardFooter>
       <div className="p-4 mt-2">
-        <Button onClick={handleSave} className="w-full">
+        <Button onClick={handleSave} className="w-full" disabled={isSaving}>
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Save Changes
         </Button>
       </div>
