@@ -27,9 +27,9 @@ const UpdateAdjustmentsSchema = z.object({
 /**
  * PUT /api/receipts/[id]/adjustments - Update adjustments in a receipt
  */
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const receiptId = params.id
+    const { id: receiptId } = await params
     const deviceId = request.headers.get("X-Device-ID")
 
     if (!deviceId) {

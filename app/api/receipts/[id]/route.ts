@@ -5,9 +5,9 @@ import { Receipt } from "@/lib/types"
 /**
  * GET /api/receipts/[id] - Get a single receipt by ID
  */
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const receiptId = params.id
+    const { id: receiptId } = await params
 
     // Get the receipt from the cloud
     const receipt = await CloudReceiptStorage.getReceipt(receiptId)

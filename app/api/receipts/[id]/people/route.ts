@@ -13,9 +13,9 @@ const AddPersonSchema = z.object({
 /**
  * POST /api/receipts/[id]/people - Add a person to a receipt
  */
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const receiptId = params.id
+    const { id: receiptId } = await params
     const deviceId = request.headers.get("X-Device-ID")
 
     if (!deviceId) {

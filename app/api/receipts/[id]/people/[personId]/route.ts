@@ -6,10 +6,10 @@ import { CloudReceiptStorage } from "@/lib/receipt/cloud-storage"
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; personId: string } }
+  { params }: { params: Promise<{ id: string; personId: string }> }
 ) {
   try {
-    const { id: receiptId, personId } = params
+    const { id: receiptId, personId } = await params
     const deviceId = request.headers.get("X-Device-ID")
 
     if (!deviceId) {
