@@ -13,6 +13,7 @@ export async function POST(request: Request) {
 
   const schema = z.object({
     path: z.string(),
+    deviceId: z.string().optional(),
   })
 
   const { data, error } = schema.safeParse(body)
@@ -21,11 +22,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   }
 
-  const { path } = data
+  const { path, deviceId } = data
 
   const reader = ReceiptReader.create()
 
-  const receipt = await reader.readReceipt(path)
+  const receipt = await reader.readReceipt(path, deviceId)
 
   if (receipt.receipt?.lineItems.length === 0) {
     return NextResponse.json(

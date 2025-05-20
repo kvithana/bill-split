@@ -53,6 +53,7 @@ export const ReceiptSchema = z.object({
   metadata: ReceiptMetadataSchema,
   lineItems: z.array(ReceiptLineItemSchema),
   adjustments: z.array(ReceiptAdjustmentSchema),
+  ownerId: z.string().optional(),
 })
 
 export const ReceiptScanSchema = z.object({

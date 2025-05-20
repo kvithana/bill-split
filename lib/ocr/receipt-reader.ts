@@ -24,7 +24,7 @@ export class ReceiptReader {
     return new ReceiptReader(openai)
   }
 
-  async readReceipt(imageUrl: string): Promise<ReceiptReaderResponse> {
+  async readReceipt(imageUrl: string, deviceId?: string): Promise<ReceiptReaderResponse> {
     const completion = await this.openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -57,9 +57,11 @@ export class ReceiptReader {
       }
     } else {
       const scanned = ReceiptScanSchema.parse(JSON.parse(result.content!))
+
       const receipt = Receipt.create({
         ...scanned,
         imageUrl,
+        deviceId,
       })
       return {
         receipt: receipt.toData(),

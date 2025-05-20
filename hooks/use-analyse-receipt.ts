@@ -1,6 +1,7 @@
 import { ReceiptReaderResponse } from "@/lib/ocr/receipt-reader"
 import type { Receipt, ReceiptScan } from "@/lib/types"
 import { useState } from "react"
+import { getDeviceId } from "@/lib/device-id"
 
 export function useAnalyseReceipt() {
   const [error, setError] = useState<{ error: string; status: number } | null>(null)
@@ -10,9 +11,13 @@ export function useAnalyseReceipt() {
   async function analyse(path: string): Promise<ReceiptReaderResponse | null> {
     try {
       setIsLoading(true)
+
+      // Get the device ID to send with the request
+      const deviceId = getDeviceId()
+
       const response = await fetch("/api/receipt/analyse", {
         method: "POST",
-        body: JSON.stringify({ path }),
+        body: JSON.stringify({ path, deviceId }),
       })
 
       if (!response.ok) {
