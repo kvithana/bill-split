@@ -24,8 +24,8 @@ export class CloudReceiptStorage {
     // Store in Redis with TTL (30 days)
     await redis.set(
       this.getReceiptKey(receipt.id),
-      cloudReceipt,
-      { ex: this.TTL_DAYS * 24 * 60 * 60 } // TTL in seconds
+      cloudReceipt
+      //   { ex: this.TTL_DAYS * 24 * 60 * 60 } // TTL in seconds
     )
 
     return cloudReceipt
