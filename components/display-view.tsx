@@ -32,19 +32,22 @@ import { generateId } from "@/lib/id"
 import AddPersonDialog from "./add-person-dialog"
 import ConfirmDialog from "./confirm-dialog"
 import { motion, AnimatePresence } from "framer-motion"
+import { ShareReceiptButton } from "./share-receipt-button"
 
 export default function DisplayView({
   receipt,
   onItemSelect,
   onRemovePerson,
   onAddPerson,
-  readOnly = false,
+  isOwner = true,
+  onMakeCollaborative,
 }: {
   receipt: Receipt
   onItemSelect: (id: string) => void
   onRemovePerson: (id: string) => void
   onAddPerson: (person: Person) => Promise<void>
-  readOnly?: boolean
+  isOwner?: boolean
+  onMakeCollaborative?: () => Promise<any>
 }) {
   const { metadata, lineItems, adjustments, people } = receipt
   const contentRef = useRef<HTMLDivElement>(null)
@@ -104,7 +107,16 @@ export default function DisplayView({
   return (
     <Card className={"receipt w-full max-w-lg mx-auto font-mono text-sm"}>
       <CardHeader className="text-center border-b border-dashed border-gray-300">
-        <h2 className="text-lg font-bold uppercase">{metadata.businessName}</h2>
+        <div className="flex items-center justify-center relative">
+          <h2 className="text-lg font-bold uppercase">{metadata.businessName}</h2>
+
+          {/* Share button or indicator */}
+          <ShareReceiptButton
+            receipt={receipt}
+            isOwner={isOwner}
+            onMakeCollaborative={onMakeCollaborative}
+          />
+        </div>
         <p className="text-xs text-gray-500">
           {new Date(receipt.metadata.dateAsISOString ?? receipt.createdAt).toLocaleDateString()}
         </p>
@@ -222,7 +234,7 @@ export default function DisplayView({
                           <span className="text-xs">{person.name}</span>
                         </div>
 
-                        {!readOnly && (
+                        {isOwner && (
                           <Button
                             variant="ghost"
                             size="sm"

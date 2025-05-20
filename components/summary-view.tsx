@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import type { Receipt, Person } from "@/lib/types"
 import { getColorForPerson } from "@/lib/colors"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { AlertTriangle, ChevronDown, ChevronUp, InfoIcon, Share2 } from "lucide-react"
+import { AlertTriangle, ChevronDown, ChevronUp, InfoIcon, Share2, CloudIcon } from "lucide-react"
 import {
   calculateAdjustmentAmount,
   calculatePersonTotal,
@@ -15,11 +15,15 @@ import {
   getPersonPortion,
   calculatePortionAmount,
 } from "@/lib/calculations"
+import { motion } from "framer-motion"
+import { ShareReceiptButton } from "./share-receipt-button"
 
 type Props = {
   receipt: Receipt
   highlightPersonId?: string
   shareUrl?: string
+  isOwner?: boolean
+  onMakeCollaborative?: () => Promise<any>
 }
 
 type ItemSummary = {
@@ -27,7 +31,13 @@ type ItemSummary = {
   amount: number
 }
 
-export default function SummaryView({ receipt, highlightPersonId, shareUrl }: Props) {
+export default function SummaryView({
+  receipt,
+  highlightPersonId,
+  shareUrl,
+  isOwner = false,
+  onMakeCollaborative,
+}: Props) {
   const [expandedPerson, setExpandedPerson] = useState<string | null>(highlightPersonId || null)
 
   const getPersonItems = (personId: string): ItemSummary[] => {
@@ -69,7 +79,16 @@ export default function SummaryView({ receipt, highlightPersonId, shareUrl }: Pr
   return (
     <Card className={"receipt w-full max-w-lg mx-auto font-mono text-sm"}>
       <CardHeader className="text-center border-b border-dashed border-gray-300">
-        <h2 className="text-lg font-bold uppercase">{receipt.metadata.businessName}</h2>
+        <div className="flex items-center justify-center relative">
+          <h2 className="text-lg font-bold uppercase">{receipt.metadata.businessName}</h2>
+
+          {/* Share button or indicator */}
+          <ShareReceiptButton
+            receipt={receipt}
+            isOwner={isOwner}
+            onMakeCollaborative={onMakeCollaborative}
+          />
+        </div>
         <p className="text-xs text-gray-500">{new Date(receipt.createdAt).toLocaleDateString()}</p>
         <p className="text-sm font-handwriting mt-2">{receipt.billName}</p>
       </CardHeader>

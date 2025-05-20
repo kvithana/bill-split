@@ -256,10 +256,12 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
               <>
                 {viewMode === "display" && (
                   <DisplayView
+                    isOwner={true}
                     receipt={receipt!}
                     onItemSelect={handleItemSelect}
                     onAddPerson={addPerson}
                     onRemovePerson={removePerson}
+                    onMakeCollaborative={receipt && !receipt.isShared ? moveToCloud : undefined}
                   />
                 )}
                 {viewMode === "edit" && (
@@ -280,7 +282,13 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
                     onAddPerson={addPerson}
                   />
                 )}
-                {viewMode === "summary" && <SummaryView receipt={receipt!} />}
+                {viewMode === "summary" && (
+                  <SummaryView
+                    receipt={receipt!}
+                    isOwner={true}
+                    onMakeCollaborative={receipt && !receipt.isShared ? moveToCloud : undefined}
+                  />
+                )}
               </>
             )}
           </motion.div>

@@ -218,7 +218,6 @@ export default function SplitReceiptContainer({
             onItemSelect={handleItemSelect}
             onAddPerson={handleAddPerson}
             onRemovePerson={handleRemovePerson}
-            readOnly={false}
           />
         )}
 
