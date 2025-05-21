@@ -13,8 +13,7 @@ import { useStandalone } from "@/hooks/use-standalone"
 import FloatingNav from "./floating-nav"
 import { useReceipt } from "@/hooks/use-receipt"
 import { Alert, AlertDescription, AlertTitle } from "./alert"
-import { slideVariants, backButtonVariants } from "@/lib/animations"
-import { Button } from "./ui/button"
+import { slideVariants } from "@/lib/animations"
 
 type ViewMode = "display" | "split" | "summary" | "edit"
 
@@ -183,9 +182,6 @@ export default function SplitReceiptContainer({
   }, [screenId, scrollPosition])
 
   const handleViewChange = (newView: ViewMode) => {
-    // Skip validation if receipt is not loaded yet
-    if (!receipt) return
-
     // set previous view scroll position
     setScrollPosition((prev) => ({ ...prev, [screenId]: window.scrollY }))
 

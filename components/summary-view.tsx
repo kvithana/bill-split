@@ -191,19 +191,15 @@ export default function SummaryView({
         ))}
 
         {hasUnallocatedItems && (
-          <div className="border-b border-dashed border-gray-300 pb-2">
+          <div className="mt-2 -mb-4 bg-gray-800 text-white p-4 rounded-md">
             <Button
               variant="ghost"
-              className="w-full flex justify-between items-center"
+              className="w-full flex justify-between items-center p-0 text-white hover:bg-transparent hover:text-white"
               onClick={() => setExpandedUnallocated(!expandedUnallocated)}
             >
-              <div className="flex items-center space-x-2">
-                <Avatar className="w-6 h-6">
-                  <AvatarFallback className="text-white" style={{ backgroundColor: "#6c757d" }}>
-                    U
-                  </AvatarFallback>
-                </Avatar>
-                <span>{UNALLOCATED_NAME}</span>
+              <div className="flex items-center">
+                <AlertTriangle className="h-4 w-4 mr-2 text-yellow-300" />
+                <h3 className="text-md font-bold">Unallocated Items</h3>
               </div>
               <div className="flex items-center space-x-2">
                 <span>{formatCurrency(totalUnallocatedAmount)}</span>
@@ -214,37 +210,24 @@ export default function SummaryView({
                 )}
               </div>
             </Button>
+
+            <div className="mt-2">
+              <p className="text-xs mb-2 text-gray-300">
+                Some items or portions haven't been assigned to specific people. To split the bill
+                fairly, go back and assign these items to actual people.
+              </p>
+            </div>
+
             {expandedUnallocated && (
-              <div className="mt-2 space-y-1 px-4">
+              <div className="mt-3 pt-2 border-t border-gray-600 space-y-1">
                 {unallocatedItems.map((item, index) => (
-                  <div key={index} className="flex justify-between text-xs">
+                  <div key={index} className="flex justify-between text-xs text-gray-300">
                     <span>{item.name}</span>
                     <span>{formatCurrency(item.amount)}</span>
                   </div>
                 ))}
-                <div className="flex justify-between text-sm font-bold pt-2 border-t border-dashed border-gray-300 mt-2">
-                  <span>Total Unallocated</span>
-                  <span>{formatCurrency(totalUnallocatedAmount)}</span>
-                </div>
               </div>
             )}
-          </div>
-        )}
-
-        {hasUnallocatedItems && (
-          <div className="mt-2 -mb-4 bg-black text-white p-4 rounded-sm">
-            <h3 className="text-md font-bold mb-2 flex items-center">
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              Unallocated Items
-            </h3>
-            <p className="text-xs mb-2">
-              There are items that haven't been fully allocated to people. Either assign these items
-              to people or mark portions as "Unallocated".
-            </p>
-            <div className="flex justify-between text-sm font-bold pt-2 border-t border-gray-700 mt-2">
-              <span>Unallocated Total</span>
-              <span>{formatCurrency(totalUnallocatedAmount)}</span>
-            </div>
           </div>
         )}
 

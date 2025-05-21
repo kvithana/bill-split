@@ -17,6 +17,7 @@ import {
   ChevronUp,
   Users,
   Cross,
+  AlertCircle,
 } from "lucide-react"
 import { getColorForPerson } from "@/lib/colors"
 import { format } from "date-fns"
@@ -33,6 +34,9 @@ import AddPersonDialog from "./add-person-dialog"
 import ConfirmDialog from "./confirm-dialog"
 import { motion, AnimatePresence } from "framer-motion"
 import { ShareReceiptButton } from "./share-receipt-button"
+import { UNALLOCATED_ID } from "@/lib/constants"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Badge } from "@/components/ui/badge"
 
 export default function DisplayView({
   receipt,
@@ -102,6 +106,21 @@ export default function DisplayView({
       default:
         return null
     }
+  }
+
+  // Helper function to check if an item has unallocated portions
+  const hasUnallocatedPortions = (portions: PersonPortion[] = []) => {
+    return portions.some((p) => p.personId === UNALLOCATED_ID)
+  }
+
+  // Helper function to check if an item is completely unallocated (no portions assigned)
+  const isCompletelyUnallocated = (portions: PersonPortion[] = []) => {
+    return !portions || portions.length === 0
+  }
+
+  // Helper function to get remaining unallocated amount
+  const getUnallocatedPortion = (portions: PersonPortion[] = []) => {
+    return portions.find((p) => p.personId === UNALLOCATED_ID)
   }
 
   return (
@@ -278,48 +297,18 @@ export default function DisplayView({
 
       <CardContent className="p-2 md:p-4 space-y-2" ref={contentRef}>
         <div className="space-y-2">
-          {lineItems.map((item) => (
-            <Button
-              key={item.id}
-              variant="ghost"
-              className="w-full flex justify-between items-start whitespace-normal h-auto md:px-4 px-3 hover:none md:hover:bg-accent md:hover:text-accent-foreground"
-              onClick={() => {
-                if (contentRef.current) {
-                  sessionStorage.setItem("scrollPosition", contentRef.current.scrollTop.toString())
-                }
-                onItemSelect(item.id)
-              }}
-            >
-              <div className="flex-1 text-left">
-                <div className="w-full">
-                  <span className="font-bold">{item.name}</span>
-                  <span className="text-gray-500 ml-2">x{item.quantity}</span>
-                </div>
-                {!!item.splitting?.portions.length && (
-                  <div className="">
-                    <span className="text-xs opacity-50">
-                      {formatCurrency(item.totalPriceInCents || 0)}
-                    </span>
-                  </div>
-                )}
-              </div>
-              {!!item.splitting?.portions.length ? (
-                <AvatarList people={people} portions={item.splitting.portions} />
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span>{formatCurrency(item.totalPriceInCents || 0)}</span>
-                </div>
-              )}
-            </Button>
-          ))}
-        </div>
-        {!!adjustments.length && (
-          <div className="pt-2 border-t border-dashed border-gray-300">
-            {adjustments.map((adjustment) => (
+          {lineItems.map((item) => {
+            const hasUnallocated = hasUnallocatedPortions(item.splitting?.portions)
+            const fullyUnallocated = isCompletelyUnallocated(item.splitting?.portions)
+            const unallocatedPortion = getUnallocatedPortion(item.splitting?.portions)
+
+            return (
               <Button
-                key={adjustment.id}
+                key={item.id}
                 variant="ghost"
-                className="w-full flex justify-between items-start whitespace-normal h-auto hover:none md:hover:bg-accent md:hover:text-accent-foreground"
+                className={`w-full flex justify-between items-start whitespace-normal h-auto md:px-4 px-3 hover:none md:hover:bg-accent md:hover:text-accent-foreground ${
+                  hasUnallocated ? "bg-yellow-50" : ""
+                }`}
                 onClick={() => {
                   if (contentRef.current) {
                     sessionStorage.setItem(
@@ -327,31 +316,150 @@ export default function DisplayView({
                       contentRef.current.scrollTop.toString()
                     )
                   }
-                  onItemSelect(adjustment.id)
+                  onItemSelect(item.id)
                 }}
               >
                 <div className="flex-1 text-left">
-                  <div className="w-full">
-                    <span className="font-bold">{adjustment.name}</span>
+                  <div className="w-full flex items-center">
+                    <span className="font-bold">{item.name}</span>
+                    <span className="text-gray-500 ml-2">x{item.quantity}</span>
+
+                    {/* Only show indicator for partially unallocated items */}
+                    {hasUnallocated && (
+                      <TooltipProvider>
+                        <Tooltip delayDuration={300}>
+                          <TooltipTrigger asChild>
+                            <span className="ml-2">
+                              <AlertCircle className="h-4 w-4 text-yellow-500" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs p-2">
+                            {unallocatedPortion?.portions || 0} unallocated{" "}
+                            {unallocatedPortion?.portions === 1 ? "portion" : "portions"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </div>
-                  {adjustment.splitting.method && (
-                    <div className="flex items-center space-x-2 text-xs opacity-50 mt-1">
-                      <span>{formatCurrency(adjustment.amountInCents || 0)}</span>
+                  {!!item.splitting?.portions.length && (
+                    <div className="">
+                      <span className="text-xs opacity-50">
+                        {formatCurrency(item.totalPriceInCents || 0)}
+                      </span>
                     </div>
                   )}
                 </div>
-
-                {adjustment.splitting.method === "manual" && (
-                  <AvatarList people={people} portions={adjustment.splitting.portions || []} />
-                )}
-                {adjustment.splitting.method !== "manual" && (
-                  <span className="ml-2 text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded-full flex items-center">
-                    {getSplittingMethodIcon(adjustment.splitting.method)}
-                    <span className="ml-1">{adjustment.splitting.method}</span>
-                  </span>
+                {!!item.splitting?.portions.length ? (
+                  <div className="flex items-center">
+                    {hasUnallocated && (
+                      <Badge
+                        variant="outline"
+                        className="mr-1 h-5 px-1 text-xs bg-yellow-100 border-yellow-200 text-yellow-800"
+                      >
+                        {unallocatedPortion?.portions || 0}
+                      </Badge>
+                    )}
+                    <AvatarList
+                      people={people}
+                      portions={item.splitting.portions.filter(
+                        (p) => p.personId !== UNALLOCATED_ID
+                      )}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span>{formatCurrency(item.totalPriceInCents || 0)}</span>
+                  </div>
                 )}
               </Button>
-            ))}
+            )
+          })}
+        </div>
+        {!!adjustments.length && (
+          <div className="pt-2 border-t border-dashed border-gray-300">
+            {adjustments.map((adjustment) => {
+              const hasUnallocated =
+                adjustment.splitting.method === "manual" &&
+                hasUnallocatedPortions(adjustment.splitting.portions)
+              const fullyUnallocated =
+                adjustment.splitting.method === "manual" &&
+                isCompletelyUnallocated(adjustment.splitting.portions)
+              const unallocatedPortion = getUnallocatedPortion(adjustment.splitting.portions || [])
+
+              return (
+                <Button
+                  key={adjustment.id}
+                  variant="ghost"
+                  className={`w-full flex justify-between items-start whitespace-normal h-auto hover:none md:hover:bg-accent md:hover:text-accent-foreground ${
+                    hasUnallocated ? "bg-yellow-50" : ""
+                  }`}
+                  onClick={() => {
+                    if (contentRef.current) {
+                      sessionStorage.setItem(
+                        "scrollPosition",
+                        contentRef.current.scrollTop.toString()
+                      )
+                    }
+                    onItemSelect(adjustment.id)
+                  }}
+                >
+                  <div className="flex-1 text-left">
+                    <div className="w-full flex items-center">
+                      <span className="font-bold">{adjustment.name}</span>
+
+                      {/* Only show indicator for partially unallocated adjustments */}
+                      {hasUnallocated && (
+                        <TooltipProvider>
+                          <Tooltip delayDuration={300}>
+                            <TooltipTrigger asChild>
+                              <span className="ml-2">
+                                <AlertCircle className="h-4 w-4 text-yellow-500" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs p-2">
+                              {unallocatedPortion?.portions || 0} unallocated{" "}
+                              {unallocatedPortion?.portions === 1 ? "portion" : "portions"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    {adjustment.splitting.method && (
+                      <div className="flex items-center space-x-2 text-xs opacity-50 mt-1">
+                        <span>{formatCurrency(adjustment.amountInCents || 0)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {adjustment.splitting.method === "manual" && (
+                    <div className="flex items-center">
+                      {hasUnallocated && (
+                        <Badge
+                          variant="outline"
+                          className="mr-1 h-5 px-1 text-xs bg-yellow-100 border-yellow-200 text-yellow-800"
+                        >
+                          {unallocatedPortion?.portions || 0}
+                        </Badge>
+                      )}
+                      {!fullyUnallocated && (
+                        <AvatarList
+                          people={people}
+                          portions={(adjustment.splitting.portions || []).filter(
+                            (p) => p.personId !== UNALLOCATED_ID
+                          )}
+                        />
+                      )}
+                    </div>
+                  )}
+                  {adjustment.splitting.method !== "manual" && (
+                    <span className="ml-2 text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded-full flex items-center">
+                      {getSplittingMethodIcon(adjustment.splitting.method)}
+                      <span className="ml-1">{adjustment.splitting.method}</span>
+                    </span>
+                  )}
+                </Button>
+              )
+            })}
           </div>
         )}
       </CardContent>

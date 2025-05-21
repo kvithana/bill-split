@@ -117,51 +117,76 @@ export default function FloatingNav({
   }
 
   return (
-    <AnimatePresence>
-      {!isInputFocused && showSaveButton && (
-        <motion.div
-          key="save-button"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-          className={cn({
-            "fixed right-4 md:hidden": true,
-            "bottom-4": !isStandalone,
-            "bottom-8": isStandalone,
-          })}
-        >
-          <Button
-            variant="default"
-            size="sm"
-            onClick={onScrollToBottomButton}
-            className="rounded-full w-11 h-11 bg-black hover:bg-gray-800"
+    <>
+      <AnimatePresence>
+        {!isInputFocused && showSaveButton && (
+          <motion.div
+            key="save-button"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className={cn({
+              "fixed right-4 md:hidden": true,
+              "bottom-4": !isStandalone,
+              "bottom-8": isStandalone,
+            })}
           >
-            <Check className="h-5 w-5" />
-            <span className="sr-only">Scroll to bottom</span>
-          </Button>
-        </motion.div>
-      )}
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onScrollToBottomButton}
+              className="rounded-full w-11 h-11 bg-black hover:bg-gray-800"
+            >
+              <Check className="h-5 w-5" />
+              <span className="sr-only">Scroll to bottom</span>
+            </Button>
+          </motion.div>
+        )}
 
-      {!isInputFocused && (
-        <motion.div
-          key="input-focused"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-          className={cn({
-            "fixed transform -translate-x-1/2 bg-[#fffdf8] rounded-full shadow-lg p-2 flex space-x-2 border border-dashed border-gray-300":
-              true,
-            "bottom-4": !isStandalone,
-            "bottom-8": isStandalone,
-          })}
-        >
-          {!hideEdit && (
+        {!isInputFocused && (
+          <motion.div
+            key="input-focused"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className={cn({
+              "fixed transform -translate-x-1/2 bg-[#fffdf8] rounded-full shadow-lg p-2 flex space-x-2 border border-dashed border-gray-300":
+                true,
+              "bottom-4": !isStandalone,
+              "bottom-8": isStandalone,
+            })}
+          >
+            {!hideEdit && (
+              <TutorialTooltip
+                content={tutorialContent[1].content}
+                title={tutorialContent[1].title}
+                open={isTutorialOpen && tutorialStep === 1}
+                onOpenChange={() => {}}
+                step={tutorialStep + 1}
+                totalSteps={tutorialContent.length}
+                onNext={handleNext}
+                onPrevious={handlePrevious}
+                onClose={handleClose}
+              >
+                <Button
+                  variant={currentView === "edit" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => !isTutorialOpen && onViewChange("edit")}
+                  className={cn("rounded-full", {
+                    "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === 1,
+                  })}
+                >
+                  <Edit className="h-4 w-4 md:mr-1" />
+                  <span className="sr-only md:not-sr-only">Edit</span>
+                </Button>
+              </TutorialTooltip>
+            )}
             <TutorialTooltip
-              content={tutorialContent[1].content}
-              title={tutorialContent[1].title}
-              open={isTutorialOpen && tutorialStep === 1}
+              content={tutorialContent[0].content}
+              open={isTutorialOpen && tutorialStep === 0}
+              title={tutorialContent[0].title}
               onOpenChange={() => {}}
               step={tutorialStep + 1}
               totalSteps={tutorialContent.length}
@@ -170,69 +195,46 @@ export default function FloatingNav({
               onClose={handleClose}
             >
               <Button
-                variant={currentView === "edit" ? "default" : "ghost"}
+                variant={currentView === "display" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => !isTutorialOpen && onViewChange("edit")}
+                onClick={() => !isTutorialOpen && onViewChange("display")}
                 className={cn("rounded-full", {
-                  "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === 1,
+                  "animate-pulse": isTutorialOpen && tutorialStep === 0,
                 })}
               >
-                <Edit className="h-4 w-4 md:mr-1" />
-                <span className="sr-only md:not-sr-only">Edit</span>
+                <Scissors className="h-4 w-4 md:mr-1" />
+                <span className="sr-only md:not-sr-only">Split</span>
               </Button>
             </TutorialTooltip>
-          )}
-          <TutorialTooltip
-            content={tutorialContent[0].content}
-            open={isTutorialOpen && tutorialStep === 0}
-            title={tutorialContent[0].title}
-            onOpenChange={() => {}}
-            step={tutorialStep + 1}
-            totalSteps={tutorialContent.length}
-            onNext={handleNext}
-            onPrevious={handlePrevious}
-            onClose={handleClose}
-          >
-            <Button
-              variant={currentView === "display" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => !isTutorialOpen && onViewChange("display")}
-              className={cn("rounded-full", {
-                "animate-pulse": isTutorialOpen && tutorialStep === 0,
-              })}
+            <TutorialTooltip
+              content={tutorialContent[2].content}
+              title={tutorialContent[2].title}
+              open={isTutorialOpen && tutorialStep === 2}
+              onOpenChange={() => {}}
+              step={tutorialStep + 1}
+              totalSteps={tutorialContent.length}
+              onNext={handleNext}
+              onPrevious={handlePrevious}
+              onClose={handleClose}
             >
-              <Scissors className="h-4 w-4 md:mr-1" />
-              <span className="sr-only md:not-sr-only">Split</span>
-            </Button>
-          </TutorialTooltip>
-          <TutorialTooltip
-            content={tutorialContent[2].content}
-            title={tutorialContent[2].title}
-            open={isTutorialOpen && tutorialStep === 2}
-            onOpenChange={() => {}}
-            step={tutorialStep + 1}
-            totalSteps={tutorialContent.length}
-            onNext={handleNext}
-            onPrevious={handlePrevious}
-            onClose={handleClose}
-          >
-            <Button
-              variant={currentView === "summary" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onViewChange("summary")}
-              className={cn("rounded-full", {
-                "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === 2,
-              })}
-            >
-              <FileText className="h-4 w-4 md:mr-1" />
-              <span className="sr-only md:not-sr-only">Summary</span>
-            </Button>
-          </TutorialTooltip>
-          {isCloud && onRefresh && (
-            <RefreshButton isCloud={true} onRefresh={onRefresh} loading={loading} />
-          )}
-        </motion.div>
+              <Button
+                variant={currentView === "summary" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => onViewChange("summary")}
+                className={cn("rounded-full", {
+                  "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === 2,
+                })}
+              >
+                <FileText className="h-4 w-4 md:mr-1" />
+                <span className="sr-only md:not-sr-only">Summary</span>
+              </Button>
+            </TutorialTooltip>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {isCloud && onRefresh && (
+        <RefreshButton isCloud={true} onRefresh={onRefresh} loading={loading} />
       )}
-    </AnimatePresence>
+    </>
   )
 }
