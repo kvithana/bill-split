@@ -17,7 +17,7 @@ import {
   calculateUnallocatedAmount,
 } from "@/lib/calculations"
 import { motion } from "framer-motion"
-import { ShareReceiptButton } from "./share-receipt-button"
+import { ShareReceiptButton } from "../share-receipt-button"
 import { UNALLOCATED_ID, UNALLOCATED_NAME } from "@/lib/constants"
 
 type Props = {

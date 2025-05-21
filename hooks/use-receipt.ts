@@ -98,31 +98,36 @@ export function useReceipt(
         if (source === "local") {
           // Local receipts come directly from the store
           setReceipt(localReceipt || options?.initialReceipt || null)
-        } else {
-          // Cloud receipts are fetched from the API
-          const response = await fetch(`/api/receipts/${receiptId}`, {
-            method: "GET",
-            headers,
+
+          return
+        }
+
+        // Cloud receipts are fetched from the API
+        const response = await fetch(`/api/receipts/${receiptId}`, {
+          method: "GET",
+          headers,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch receipt: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        if (data.success && data.receipt) {
+          const newHash = receiptHash(data.receipt)
+          const currentHash = receiptHash(localReceipt)
+          console.log("Setting receipt from cloud", {
+            newHash,
+            currentHash,
           })
 
-          if (!response.ok) {
-            throw new Error(`Failed to fetch receipt: ${response.statusText}`)
+          if (newHash !== currentHash) {
+            console.log("Updating local receipt from cloud")
+            storeActions.updateReceipt(receiptId, data.receipt)
+            setReceipt(data.receipt)
           }
-
-          const data = await response.json()
-          if (data.success && data.receipt) {
-            console.log("Setting receipt from cloud")
-            const newHash = receiptHash(data.receipt)
-            const currentHash = receiptHash(localReceipt)
-
-            if (newHash !== currentHash) {
-              console.log("Updating local receipt from cloud")
-              storeActions.updateReceipt(receiptId, data.receipt)
-              setReceipt(data.receipt)
-            }
-          } else {
-            throw new Error(data.error || "Unknown error")
-          }
+        } else {
+          throw new Error(data.error || "Unknown error")
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
@@ -139,8 +144,6 @@ export function useReceipt(
     [receiptId, source, localReceipt]
   ) // Removed isLoading from dependencies
 
-  console.log("source", source)
-
   // First determine the source based on receipt properties
   useEffect(() => {
     const newSource = isReceiptCloud(receipt) ? "cloud" : "local"
@@ -155,6 +158,18 @@ export function useReceipt(
     fetchReceipt()
     // This effect should run when source or fetchReceipt changes
   }, [source, fetchReceipt])
+
+  const setReceiptFromCloud = useCallback(
+    (incoming: Receipt) => {
+      const newHash = receiptHash(incoming)
+      const currentHash = receipt ? receiptHash(receipt) : null
+      if (newHash !== currentHash) {
+        storeActions.updateReceipt(receiptId, incoming)
+        setReceipt(incoming)
+      }
+    },
+    [receiptId, receipt, storeActions]
+  )
 
   // Update line items based on the source
   const updateLineItems = useCallback(
@@ -181,9 +196,13 @@ export function useReceipt(
           if (!response.ok) {
             throw new Error(`Failed to update line items: ${response.statusText}`)
           }
-
           // Refresh the receipt data from the cloud, but skip setting loading state again
-          await fetchReceipt(true)
+          const data = await response.json()
+          if (data.success && data.receipt) {
+            setReceiptFromCloud(data.receipt)
+          } else {
+            throw new Error(data.error || "Unknown error")
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
@@ -192,7 +211,7 @@ export function useReceipt(
         setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, storeActions, fetchReceipt]
+    [receipt, source, receiptId, storeActions, setReceiptFromCloud]
   )
 
   // Update adjustments based on the source
@@ -221,8 +240,12 @@ export function useReceipt(
             throw new Error(`Failed to update adjustments: ${response.statusText}`)
           }
 
-          // Refresh the receipt data from the cloud, but skip setting loading state again
-          await fetchReceipt(true)
+          const data = await response.json()
+          if (data.success && data.receipt) {
+            setReceiptFromCloud(data.receipt)
+          } else {
+            throw new Error(data.error || "Unknown error")
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
@@ -231,7 +254,7 @@ export function useReceipt(
         setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, storeActions, fetchReceipt]
+    [receipt, source, receiptId, storeActions, setReceiptFromCloud]
   )
 
   // Add a person based on the source
@@ -260,8 +283,12 @@ export function useReceipt(
             throw new Error(`Failed to add person: ${response.statusText}`)
           }
 
-          // Refresh the receipt data from the cloud, but skip setting loading state again
-          await fetchReceipt(true)
+          const data = await response.json()
+          if (data.success && data.receipt) {
+            setReceiptFromCloud(data.receipt)
+          } else {
+            throw new Error(data.error || "Unknown error")
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
@@ -270,7 +297,7 @@ export function useReceipt(
         setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, storeActions, fetchReceipt]
+    [receipt, source, receiptId, storeActions, setReceiptFromCloud]
   )
 
   // Remove a person based on the source
@@ -305,8 +332,12 @@ export function useReceipt(
             throw new Error(`Failed to remove person: ${response.statusText}`)
           }
 
-          // Refresh the receipt data from the cloud, but skip setting loading state again
-          await fetchReceipt(true)
+          const data = await response.json()
+          if (data.success && data.receipt) {
+            setReceiptFromCloud(data.receipt)
+          } else {
+            throw new Error(data.error || "Unknown error")
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
@@ -315,7 +346,7 @@ export function useReceipt(
         setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, storeActions, fetchReceipt]
+    [receipt, source, receiptId, storeActions, setReceiptFromCloud]
   )
 
   // Move a local receipt to the cloud
