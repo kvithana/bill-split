@@ -14,9 +14,11 @@ import {
   formatCurrency,
   getPersonPortion,
   calculatePortionAmount,
+  calculateUnallocatedAmount,
 } from "@/lib/calculations"
 import { motion } from "framer-motion"
 import { ShareReceiptButton } from "./share-receipt-button"
+import { UNALLOCATED_ID, UNALLOCATED_NAME } from "@/lib/constants"
 
 type Props = {
   receipt: Receipt
@@ -39,6 +41,7 @@ export default function SummaryView({
   onMakeCollaborative,
 }: Props) {
   const [expandedPerson, setExpandedPerson] = useState<string | null>(highlightPersonId || null)
+  const [expandedUnallocated, setExpandedUnallocated] = useState<boolean>(false)
 
   const getPersonItems = (personId: string): ItemSummary[] => {
     const lineItems = receipt.lineItems
@@ -46,7 +49,7 @@ export default function SummaryView({
         const personPortion = getPersonPortion(personId)(item.splitting?.portions || [])
         if (!personPortion) return null
 
-        const totalPortions = item.splitting?.portions.reduce((sum, p) => sum + p.portions, 0) || 0
+        const totalPortions = item.splitting?.portions?.reduce((sum, p) => sum + p.portions, 0) || 0
         const amount = calculatePortionAmount(
           item.totalPriceInCents,
           personPortion.portions,
@@ -66,15 +69,63 @@ export default function SummaryView({
     return [...lineItems, ...adjustmentItems]
   }
 
-  const unaccountedItems = [
+  // Items with no assignments
+  const completelyUnassignedItems = [
     ...receipt.lineItems.filter(
-      (item) => !item.splitting?.portions.some((p) => p.personId === highlightPersonId)
+      (item) => !item.splitting?.portions || item.splitting.portions.length === 0
     ),
     ...receipt.adjustments.filter(
       (adjustment) =>
-        adjustment.splitting.method === "manual" && adjustment.splitting.portions?.length === 0
+        adjustment.splitting.method === "manual" &&
+        (!adjustment.splitting.portions || adjustment.splitting.portions.length === 0)
     ),
   ]
+
+  // Items with explicit unallocated portions
+  const itemsWithUnallocatedPortions = [
+    ...receipt.lineItems.filter((item) =>
+      item.splitting?.portions?.some((p) => p.personId === UNALLOCATED_ID)
+    ),
+    ...receipt.adjustments.filter(
+      (adjustment) =>
+        adjustment.splitting.method === "manual" &&
+        adjustment.splitting.portions?.some((p) => p.personId === UNALLOCATED_ID)
+    ),
+  ]
+
+  // Get unallocated portions amounts
+  const getUnallocatedItems = (): ItemSummary[] => {
+    // First add completely unassigned items
+    const unassignedItems = completelyUnassignedItems.map((item) => ({
+      name: item.name,
+      amount: "totalPriceInCents" in item ? item.totalPriceInCents : item.amountInCents,
+    }))
+
+    // Then add explicitly unallocated portions
+    const partiallyUnallocatedItems = itemsWithUnallocatedPortions
+      .map((item) => {
+        const unallocatedPortion = item.splitting?.portions?.find(
+          (p) => p.personId === UNALLOCATED_ID
+        )
+        if (!unallocatedPortion) return null
+
+        const totalPortions = item.splitting?.portions?.reduce((sum, p) => sum + p.portions, 0) || 0
+        const amount = calculatePortionAmount(
+          "totalPriceInCents" in item ? item.totalPriceInCents : item.amountInCents,
+          unallocatedPortion.portions,
+          totalPortions
+        )
+
+        return { name: `${item.name} (partial)`, amount }
+      })
+      .filter((item): item is ItemSummary => item !== null)
+
+    return [...unassignedItems, ...partiallyUnallocatedItems]
+  }
+
+  const unallocatedItems = getUnallocatedItems()
+  const hasUnallocatedItems = unallocatedItems.length > 0
+  const totalUnallocatedAmount = calculateUnallocatedAmount(receipt)
 
   return (
     <Card className={"receipt w-full max-w-lg mx-auto font-mono text-sm"}>
@@ -139,42 +190,64 @@ export default function SummaryView({
           </div>
         ))}
 
-        {unaccountedItems.length > 0 && (
+        {hasUnallocatedItems && (
+          <div className="border-b border-dashed border-gray-300 pb-2">
+            <Button
+              variant="ghost"
+              className="w-full flex justify-between items-center"
+              onClick={() => setExpandedUnallocated(!expandedUnallocated)}
+            >
+              <div className="flex items-center space-x-2">
+                <Avatar className="w-6 h-6">
+                  <AvatarFallback className="text-white" style={{ backgroundColor: "#6c757d" }}>
+                    U
+                  </AvatarFallback>
+                </Avatar>
+                <span>{UNALLOCATED_NAME}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span>{formatCurrency(totalUnallocatedAmount)}</span>
+                {expandedUnallocated ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </div>
+            </Button>
+            {expandedUnallocated && (
+              <div className="mt-2 space-y-1 px-4">
+                {unallocatedItems.map((item, index) => (
+                  <div key={index} className="flex justify-between text-xs">
+                    <span>{item.name}</span>
+                    <span>{formatCurrency(item.amount)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between text-sm font-bold pt-2 border-t border-dashed border-gray-300 mt-2">
+                  <span>Total Unallocated</span>
+                  <span>{formatCurrency(totalUnallocatedAmount)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {hasUnallocatedItems && (
           <div className="mt-2 -mb-4 bg-black text-white p-4 rounded-sm">
             <h3 className="text-md font-bold mb-2 flex items-center">
               <AlertTriangle className="h-4 w-4 mr-2" />
               Unallocated Items
             </h3>
-            <div className="space-y-1">
-              {unaccountedItems.map((item, index) => (
-                <div key={index} className="flex justify-between text-xs">
-                  <span>{item.name}</span>
-                  <span>
-                    {formatCurrency(
-                      "totalPriceInCents" in item ? item.totalPriceInCents : item.amountInCents
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <p className="text-xs mb-2">
+              There are items that haven't been fully allocated to people. Either assign these items
+              to people or mark portions as "Unallocated".
+            </p>
             <div className="flex justify-between text-sm font-bold pt-2 border-t border-gray-700 mt-2">
               <span>Unallocated Total</span>
-              <span>
-                {formatCurrency(
-                  unaccountedItems.reduce(
-                    (sum, item) =>
-                      sum +
-                      ("totalPriceInCents" in item ? item.totalPriceInCents : item.amountInCents),
-                    0
-                  )
-                )}
-              </span>
+              <span>{formatCurrency(totalUnallocatedAmount)}</span>
             </div>
           </div>
         )}
-        {unaccountedItems.length > 0 && (
-          <div className="border-b border-dashed border-gray-300 pb-2" />
-        )}
+
         <div className="flex justify-between font-bold text-lg px-4 p-4">
           <span>Total</span>
           <span>{formatCurrency(calculateReceiptTotal(receipt))}</span>

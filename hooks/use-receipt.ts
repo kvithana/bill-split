@@ -39,8 +39,6 @@ export function useReceipt(
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  const currentHash = useMemo(() => (receipt ? receiptHash(receipt) : 0), [receipt])
-
   // Use a ref to track if we're currently fetching to prevent double fetches
   const [isFetching, setIsFetching] = useState(false)
 
@@ -99,7 +97,7 @@ export function useReceipt(
 
         if (source === "local") {
           // Local receipts come directly from the store
-          setReceipt(localReceipt || null)
+          setReceipt(localReceipt || options?.initialReceipt || null)
         } else {
           // Cloud receipts are fetched from the API
           const response = await fetch(`/api/receipts/${receiptId}`, {
@@ -141,14 +139,16 @@ export function useReceipt(
     [receiptId, source, localReceipt]
   ) // Removed isLoading from dependencies
 
+  console.log("source", source)
+
   // First determine the source based on receipt properties
   useEffect(() => {
-    const newSource = isReceiptCloud(localReceipt) ? "cloud" : "local"
+    const newSource = isReceiptCloud(receipt) ? "cloud" : "local"
 
     if (newSource !== source) {
       setSource(newSource)
     }
-  }, [localReceipt, source, isReceiptCloud])
+  }, [receipt, source, isReceiptCloud])
 
   // Then fetch the receipt whenever source changes or on initial mount
   useEffect(() => {
