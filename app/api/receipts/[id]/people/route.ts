@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { CloudReceiptStorage } from "@/lib/receipt/cloud-storage"
 import { z } from "zod"
 import { validateRequest } from "@/lib/auth/validate-request"
+import { personNameCollides } from "@/lib/people"
 import { PersonSchema } from "@/lib/types"
 // Schema for request body when adding a person - standardized to only use full person object
 const AddPersonSchema = z.object({
@@ -43,6 +44,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json(
         { success: false, error: "This bill has been settled and can no longer be modified" },
         { status: 423 }
+      )
+    }
+
+    const existingPeople = authResult.receipt.toData().people
+    if (personNameCollides(existingPeople, person.name)) {
+      return NextResponse.json(
+        { success: false, error: "Someone with this name is already on this bill" },
+        { status: 409 }
       )
     }
 

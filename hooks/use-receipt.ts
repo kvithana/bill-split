@@ -6,6 +6,7 @@ import { Receipt, ReceiptLineItem, ReceiptAdjustment, Person } from "@/lib/types
 import { getDeviceId } from "@/lib/device-id"
 import { generateId } from "@/lib/id"
 import { toast } from "@/hooks/use-toast"
+import { personNameCollides } from "@/lib/people"
 import { computeReceiptHash } from "@/lib/receipt/hash"
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client"
 import { fromRow } from "@/lib/receipt/row-mapper"
@@ -23,7 +24,7 @@ export type UseReceiptResult = {
   // Mutations
   updateLineItems: (lineItems: ReceiptLineItem[]) => Promise<void>
   updateAdjustments: (adjustments: ReceiptAdjustment[]) => Promise<void>
-  addPerson: (person: Person) => Promise<void>
+  addPerson: (person: Person) => Promise<boolean>
   removePerson: (personId: string) => Promise<void>
   moveToCloud: () => Promise<{ receiptId: string; shareKey: string } | null>
   refresh: () => Promise<void>
@@ -300,30 +301,67 @@ export function useReceipt(
   )
 
   const addPerson = useCallback(
-    async (person: Person) => {
-      if (!receipt) return
+    async (person: Person): Promise<boolean> => {
+      if (!receipt) return false
+
+      if (personNameCollides(receipt.people, person.name)) {
+        toast({
+          title: "Name already on this bill",
+          description: "Use a different name or pick yourself from the list.",
+          variant: "destructive",
+        })
+        return false
+      }
 
       try {
         if (source === "local") {
           storeActions.addPerson(receiptId, person)
           setReceipt((prev) => (prev ? { ...prev, people: [...prev.people, person] } : null))
-        } else {
-          setIsLoading(true)
-          const response = await fetch(`/api/receipts/${receiptId}/people`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ person, hash: receipt.hash }),
-          })
-
-          if (!response.ok) {
-            throw new Error(`Failed to add person: ${response.statusText}`)
-          }
-
-          const success = await handleApiResponse(response, "add person")
-          if (success) {
-            toast({ title: "Changes saved", description: `${person.name} added successfully`, duration: 1000 })
-          }
+          return true
         }
+
+        setIsLoading(true)
+        const response = await fetch(`/api/receipts/${receiptId}/people`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ person, hash: receipt.hash }),
+        })
+
+        const data = (await response.json().catch(() => ({}))) as {
+          success?: boolean
+          receipt?: Receipt
+          syncRequired?: boolean
+          error?: string
+        }
+
+        if (!response.ok) {
+          throw new Error(data.error || `Failed to add person: ${response.statusText}`)
+        }
+
+        if (data.success && data.receipt) {
+          await setReceiptFromCloud(data.receipt)
+          toast({
+            title: "Changes saved",
+            description: `${person.name} added successfully`,
+            duration: 1000,
+          })
+          return true
+        }
+
+        if (data.syncRequired) {
+          if (!isRealtimeConnectedRef.current) {
+            toast({
+              title: "Receipt out of sync",
+              description: "Someone else has updated this receipt. Refreshing your view.",
+              variant: "destructive",
+              duration: 5000,
+            })
+          }
+          await fetchReceipt(false)
+          return false
+        }
+
+        throw new Error(data.error || "Unknown error during add person")
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
         toast({
@@ -331,11 +369,12 @@ export function useReceipt(
           description: err instanceof Error ? err.message : "Unknown error occurred",
           variant: "destructive",
         })
+        return false
       } finally {
         setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, storeActions, handleApiResponse]
+    [receipt, source, receiptId, storeActions, setReceiptFromCloud, fetchReceipt, headers]
   )
 
   const removePerson = useCallback(

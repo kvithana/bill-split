@@ -79,4 +79,5 @@ Note that adjustments are things such as credit card surcharges, tips, holiday s
 You can rename these to a more descriptive name if necessary. 
 Wait and validate the entries to ensure they are correct.
 Leave \`splitting\` fields on line items undefined.
+For adjustments (additional charges), default to proportional splitting of each charge across diners based on their share of the line items: use splitting.method \`proportional\` and omit \`portions\`, or omit the entire \`splitting\` object. Only use \`equal\` or \`manual\` when the receipt text clearly implies an even split or fixed assignment.
 `

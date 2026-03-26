@@ -28,7 +28,7 @@ export default function DisplayView({
   receipt: Receipt
   onItemSelect: (id: string) => void
   onRemovePerson: (id: string) => void
-  onAddPerson: (person: Person) => Promise<void>
+  onAddPerson: (person: Person) => Promise<boolean>
   isOwner?: boolean
   onMakeCollaborative?: () => Promise<{ receiptId: string; shareKey: string } | null>
   onViewSummary?: () => void
@@ -51,15 +51,16 @@ export default function DisplayView({
     }
   }, [])
 
-  const handleAddPerson = (name: string) => {
-    if (name.trim()) {
-      const person: Person = {
-        id: generateId(),
-        name: name.trim(),
-      }
+  const handleAddPerson = async (name: string): Promise<boolean> => {
+    const trimmed = name.trim()
+    if (!trimmed) return false
 
-      onAddPerson(person)
+    const person: Person = {
+      id: generateId(),
+      name: trimmed,
     }
+
+    return onAddPerson(person)
   }
 
   // Updated remove person handler

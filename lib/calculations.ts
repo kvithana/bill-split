@@ -1,5 +1,6 @@
 import type { Receipt, ReceiptLineItem, ReceiptAdjustment, PersonPortion } from "@/lib/types"
 import { UNALLOCATED_ID } from "@/lib/constants"
+import { DEFAULT_ADJUSTMENT_SPLIT_METHOD } from "@/lib/receipt/adjustment-splitting"
 
 export const formatCurrency = (cents: number): string => `$${(cents / 100).toFixed(2)}`
 
@@ -28,7 +29,9 @@ export const calculateAdjustmentAmount = (
   adjustment: ReceiptAdjustment,
   personId: string
 ): number => {
-  if (adjustment.splitting.method === "equal") {
+  const method = adjustment.splitting.method ?? DEFAULT_ADJUSTMENT_SPLIT_METHOD
+
+  if (method === "equal") {
     // Count only real people for equal splits, not unallocated
     const realPeoplePortions = adjustment.splitting.portions?.filter(
       (p) => p.personId !== UNALLOCATED_ID
@@ -37,7 +40,7 @@ export const calculateAdjustmentAmount = (
     return Math.round(adjustment.amountInCents / participatingPeople)
   }
 
-  if (adjustment.splitting.method === "proportional") {
+  if (method === "proportional") {
     const personTotal = calculatePersonLineItemsTotal(receipt, personId)
     const receiptTotal = calculateLineItemsTotal(receipt)
     return receiptTotal === 0

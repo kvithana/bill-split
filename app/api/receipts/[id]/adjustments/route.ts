@@ -2,27 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { CloudReceiptStorage } from "@/lib/receipt/cloud-storage"
 import { z } from "zod"
 import { validateRequest } from "@/lib/auth/validate-request"
+import { ReceiptAdjustmentInputSchema } from "@/lib/types"
+import { normalizeReceiptAdjustment } from "@/lib/receipt/adjustment-splitting"
 
 // Schema for the request body
 const UpdateAdjustmentsSchema = z.object({
-  adjustments: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      amountInCents: z.number(),
-      splitting: z.object({
-        method: z.enum(["equal", "proportional", "manual"]),
-        portions: z
-          .array(
-            z.object({
-              personId: z.string(),
-              portions: z.number(),
-            })
-          )
-          .optional(),
-      }),
-    })
-  ),
+  adjustments: z.array(ReceiptAdjustmentInputSchema),
   shareKey: z.string().optional(), // Optional shareKey for shared links
   hash: z.string().optional(), // Hash of the receipt for concurrency control
 })
@@ -65,7 +50,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       const updatedReceipt = await CloudReceiptStorage.updateReceipt(
         receiptId,
         {
-          adjustments: data.adjustments,
+          adjustments: data.adjustments.map(normalizeReceiptAdjustment),
         },
         data.hash
       )

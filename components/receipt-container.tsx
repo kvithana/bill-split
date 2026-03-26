@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import DisplayView from "./views/display-view"
-import EditItemsView from "./views/edit-items-view"
+import EditItemsView, { type EditItemsViewHandle } from "./views/edit-items-view"
 import SplittingView from "./views/splitting-view"
 import SummaryView from "./views/summary-view"
 import { Person, Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
@@ -46,6 +46,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   const [isVisible, setIsVisible] = useState(true)
   const isStandalone = useStandalone()
   const [loading, setLoading] = useState(false)
+  const editItemsViewRef = useRef<EditItemsViewHandle>(null)
 
   const screenId = viewMode === "split" ? viewMode + selectedItemId : viewMode
 
@@ -74,26 +75,33 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     }
   }, [isVisible, router])
 
-  const handleSave = async (updatedReceipt: Receipt) => {
+  const handleSave = async (
+    updatedReceipt: Receipt,
+    options?: { navigateAfter?: boolean }
+  ) => {
+    const navigateAfter = options?.navigateAfter !== false
     try {
       setIsSaving(true)
       await updateLineItemsAction(updatedReceipt.lineItems)
       await updateAdjustmentsAction(updatedReceipt.adjustments)
 
-      handleViewChange("display")
       await refresh()
 
-      toast({
-        title: "Changes saved successfully",
-        description: "Your receipt has been updated.",
-        duration: 2000,
-      })
+      if (navigateAfter) {
+        handleViewChange("display", { fromSuccessfulSave: true })
+        toast({
+          title: "Changes saved successfully",
+          description: "Your receipt has been updated.",
+          duration: 2000,
+        })
+      }
     } catch (err) {
       toast({
         title: "Failed to save changes",
         description: err instanceof Error ? err.message : "An unknown error occurred",
         variant: "destructive",
       })
+      throw err
     } finally {
       setIsSaving(false)
     }
@@ -104,16 +112,17 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     handleViewChange("split")
   }
 
-  const addPerson = async (person: Person) => {
+  const addPerson = async (person: Person): Promise<boolean> => {
     try {
       setLoading(true)
-      await addPersonAction(person)
+      return await addPersonAction(person)
     } catch (err) {
       toast({
         title: "Failed to add person",
         description: err instanceof Error ? err.message : "An unknown error occurred",
         variant: "destructive",
       })
+      return false
     } finally {
       setLoading(false)
     }
@@ -204,9 +213,21 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     )
   }
 
-  const handleViewChange = (newView: ViewMode) => {
+  const handleViewChange = async (
+    newView: ViewMode,
+    options?: { fromSuccessfulSave?: boolean }
+  ) => {
     // Skip validation if receipt is not loaded yet
     if (!receipt) return
+
+    if (
+      viewMode === "edit" &&
+      newView === "display" &&
+      !options?.fromSuccessfulSave
+    ) {
+      const ok = (await editItemsViewRef.current?.saveIfNeeded()) ?? true
+      if (!ok) return
+    }
 
     if (viewMode === "edit") {
       setHasEditChanges(false)
@@ -269,6 +290,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
                 )}
                 {viewMode === "edit" && (
                   <EditItemsView
+                    ref={editItemsViewRef}
                     setHasEditChanges={setHasEditChanges}
                     receipt={receipt!}
                     onSave={handleSave}

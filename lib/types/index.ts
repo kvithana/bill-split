@@ -34,14 +34,25 @@ const SplitMethodSchema = z.enum([
   "manual", // Custom portions like line items
 ])
 
+/** Splitting as stored on a validated receipt (no defaults — use normalizeReceiptAdjustment at boundaries). */
+export const ReceiptAdjustmentSplittingSchema = z.object({
+  method: SplitMethodSchema,
+  portions: z.array(PersonPortionSchema).optional(),
+})
+
 export const ReceiptAdjustmentSchema = z.object({
   id: z.string(),
   name: z.string(),
   amountInCents: z.number(),
-  splitting: z.object({
-    method: SplitMethodSchema,
-    portions: z.array(PersonPortionSchema).optional(),
-  }),
+  splitting: ReceiptAdjustmentSplittingSchema,
+})
+
+/** OCR / API body: splitting may be omitted; normalize with normalizeReceiptAdjustment. */
+export const ReceiptAdjustmentInputSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  amountInCents: z.number(),
+  splitting: ReceiptAdjustmentSplittingSchema.optional(),
 })
 
 export const ReceiptSchema = z.object({
@@ -65,7 +76,7 @@ export const ReceiptSchema = z.object({
 export const ReceiptScanSchema = z.object({
   metadata: ReceiptMetadataSchema,
   lineItems: z.array(ReceiptLineItemSchema),
-  adjustments: z.array(ReceiptAdjustmentSchema),
+  adjustments: z.array(ReceiptAdjustmentInputSchema),
 })
 
 export type Receipt = z.infer<typeof ReceiptSchema>

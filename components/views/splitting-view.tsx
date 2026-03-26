@@ -12,6 +12,7 @@ import * as R from "ramda"
 import { getColorForPerson } from "@/lib/colors"
 import { generateId } from "@/lib/id"
 import { UNALLOCATED_ID, UNALLOCATED_NAME } from "@/lib/constants"
+import { DEFAULT_ADJUSTMENT_SPLIT_METHOD } from "@/lib/receipt/adjustment-splitting"
 
 export default function SplittingView({
   receipt,
@@ -26,7 +27,7 @@ export default function SplittingView({
   onUpdateLineItems: (lineItems: ReceiptLineItem[]) => void
   onUpdateAdjustments: (adjustments: ReceiptAdjustment[]) => void
   onBack: () => void
-  onAddPerson: (person: Person) => void
+  onAddPerson: (person: Person) => Promise<boolean>
 }) {
   const [editedReceipt, setEditedReceipt] = useState(receipt)
   const [newPersonName, setNewPersonName] = useState("")
@@ -127,7 +128,7 @@ export default function SplittingView({
       const ensuredAdjustment: ReceiptAdjustment = {
         ...updatedItem,
         splitting: {
-          method: updatedItem.splitting.method,
+          method: updatedItem.splitting.method ?? DEFAULT_ADJUSTMENT_SPLIT_METHOD,
           portions: filterValidPortions(updatedItem.splitting.portions),
         },
       }
@@ -160,6 +161,7 @@ export default function SplittingView({
         ...adjustment,
         splitting: {
           ...adjustment.splitting,
+          method: adjustment.splitting.method ?? DEFAULT_ADJUSTMENT_SPLIT_METHOD,
           portions: filterValidPortions(adjustment.splitting.portions || []),
         },
       })),
@@ -172,19 +174,19 @@ export default function SplittingView({
     }
   }
 
-  const addPerson = () => {
-    if (!newPersonName.trim()) return
+  const addPerson = async () => {
+    const trimmed = newPersonName.trim()
+    if (!trimmed) return
 
-    // Create a person object
     const person: Person = {
       id: generateId(),
-      name: newPersonName.trim(),
+      name: trimmed,
     }
 
-    // Pass the person object to the handler
-    onAddPerson(person)
-
-    setNewPersonName("")
+    const added = await onAddPerson(person)
+    if (added) {
+      setNewPersonName("")
+    }
   }
 
   const togglePerson = (personId: string) => {
@@ -276,7 +278,9 @@ export default function SplittingView({
 
   const total = isLineItem(item) ? item.totalPriceInCents : item.amountInCents
 
-  const splittingMethod = !isLineItem(item) ? item.splitting?.method : "manual"
+  const splittingMethod = !isLineItem(item)
+    ? (item.splitting?.method ?? DEFAULT_ADJUSTMENT_SPLIT_METHOD)
+    : "manual"
 
   const isUnallocatedSelected = item.splitting?.portions?.some((p) => p.personId === UNALLOCATED_ID)
   const unallocatedPortion = item.splitting?.portions?.find((p) => p.personId === UNALLOCATED_ID)
@@ -461,11 +465,11 @@ export default function SplittingView({
               className="flex-grow"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && newPersonName.trim()) {
-                  addPerson()
+                  void addPerson()
                 }
               }}
             />
-            <Button onClick={addPerson}>Add Person</Button>
+            <Button onClick={() => void addPerson()}>Add Person</Button>
           </div>
         )}
       </CardContent>

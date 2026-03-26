@@ -8,6 +8,8 @@ import { Receipt, Person } from "@/lib/types"
 import SplitReceiptContainer from "@/components/split-receipt-container"
 import NameSelectionDialog from "@/components/name-selection-dialog"
 import { generateId } from "@/lib/id"
+import { personNameCollides } from "@/lib/people"
+import { splitShareDisplayNameKey } from "@/lib/share-session"
 
 export function SplitReceiptPage() {
   const { id: receiptId } = useParams<{ id: string }>()
@@ -19,6 +21,26 @@ export function SplitReceiptPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
   const [isNameDialogOpen, setIsNameDialogOpen] = useState(false)
+  const [prefillShareName, setPrefillShareName] = useState("")
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !receiptId) return
+
+    const stored = localStorage.getItem(splitShareDisplayNameKey(receiptId))
+    if (stored?.trim()) {
+      setPrefillShareName(stored.trim())
+      return
+    }
+
+    const idRaw = localStorage.getItem(`split-identity-${receiptId}`)
+    if (!idRaw) return
+    try {
+      const p = JSON.parse(idRaw) as Person
+      if (p?.name?.trim()) setPrefillShareName(p.name.trim())
+    } catch {
+      // ignore
+    }
+  }, [receiptId])
 
   // Fetch the receipt with the shareKey
   useEffect(() => {
@@ -99,6 +121,7 @@ export function SplitReceiptPage() {
         const person = receipt.people.find((p) => p.name === selectedName)
         if (person) {
           localStorage.setItem(`split-identity-${receiptId}`, JSON.stringify(person))
+          localStorage.setItem(splitShareDisplayNameKey(receiptId), person.name)
           setSelectedPerson(person)
           setIsNameDialogOpen(false)
           return
@@ -106,9 +129,18 @@ export function SplitReceiptPage() {
       }
 
       // Create new person if not using existing one
+      if (personNameCollides(receipt.people, selectedName)) {
+        toast({
+          title: "Name already on this bill",
+          description: "Choose yourself from the list or use a different name.",
+          variant: "destructive",
+        })
+        return
+      }
+
       const newPerson: Person = {
         id: generateId(),
-        name: selectedName,
+        name: selectedName.trim(),
       }
 
       // Add the person to the receipt using standardized format
@@ -132,6 +164,7 @@ export function SplitReceiptPage() {
 
       if (data.success && data.receipt) {
         localStorage.setItem(`split-identity-${receiptId}`, JSON.stringify(newPerson))
+        localStorage.setItem(splitShareDisplayNameKey(receiptId), newPerson.name)
         setReceipt(data.receipt)
         setSelectedPerson(newPerson)
         setIsNameDialogOpen(false)
@@ -255,6 +288,7 @@ export function SplitReceiptPage() {
           onClose={() => setIsNameDialogOpen(false)}
           onSelect={handleNameSelection}
           existingPeople={receipt.people}
+          prefillNewName={prefillShareName}
         />
       </>
     )

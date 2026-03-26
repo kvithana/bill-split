@@ -13,6 +13,7 @@ import { useState, useCallback } from "react"
 import { toast } from "@/hooks/use-toast"
 import { useDropzone } from "react-dropzone"
 import { Receipt } from "@/lib/types"
+import { DEFAULT_ADJUSTMENT_SPLIT_METHOD } from "@/lib/receipt/adjustment-splitting"
 import { generateId } from "@/lib/id"
 import useStore from "@/hooks/use-store"
 
@@ -139,13 +140,13 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
         id: generateId(),
         name: "Credit Card Surcharge (1.5%)",
         amountInCents: 680,
-        splitting: { method: "equal", portions: [] },
+        splitting: { method: DEFAULT_ADJUSTMENT_SPLIT_METHOD, portions: [] },
       },
       {
         id: generateId(),
         name: "Tip (10%)",
         amountInCents: 2000,
-        splitting: { method: "equal", portions: [] },
+        splitting: { method: DEFAULT_ADJUSTMENT_SPLIT_METHOD, portions: [] },
       },
     ],
   }

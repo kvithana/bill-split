@@ -15,7 +15,7 @@ import { Check, UserPlus } from "lucide-react"
 interface AddPersonDialogProps {
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  onAddPerson: (name: string) => void
+  onAddPerson: (name: string) => Promise<boolean>
   triggerButton?: React.ReactNode
 }
 
@@ -27,20 +27,21 @@ export default function AddPersonDialog({
 }: AddPersonDialogProps) {
   const [name, setName] = useState("")
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
-    if (name.trim()) {
-      onAddPerson(name.trim())
+    const trimmed = name.trim()
+    if (!trimmed) return
+
+    const added = await onAddPerson(trimmed)
+    if (added) {
       setName("")
-      if (onOpenChange) {
-        onOpenChange(false)
-      }
+      onOpenChange?.(false)
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      handleSubmit()
+      void handleSubmit()
     }
   }
 
@@ -53,7 +54,12 @@ export default function AddPersonDialog({
         <div className="mt-4 text-sm">ADD NEW CUSTOMER</div>
       </DialogHeader>
 
-      <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+      <form
+        onSubmit={(e) => {
+          void handleSubmit(e)
+        }}
+        className="space-y-4 mt-4"
+      >
         <div className="flex flex-col space-y-2">
           <label className="text-xs uppercase text-gray-500">Name</label>
           <Input

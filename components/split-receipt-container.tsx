@@ -92,10 +92,10 @@ export default function SplitReceiptContainer({
     }
   }, [isReceiptMounted])
 
-  const handleAddPerson = async (person: Person) => {
+  const handleAddPerson = async (person: Person): Promise<boolean> => {
     try {
       setLoading(true)
-      await addPerson(person)
+      return await addPerson(person)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to add person"
       toast({
@@ -103,6 +103,7 @@ export default function SplitReceiptContainer({
         description: message,
         variant: "destructive",
       })
+      return false
     } finally {
       setLoading(false)
     }

@@ -1,11 +1,12 @@
-import { Receipt as ReceiptType, ReceiptLineItem, ReceiptAdjustment } from "@/lib/types"
+import { Receipt as ReceiptType, ReceiptLineItem, ReceiptAdjustment, ReceiptScan } from "@/lib/types"
 import { generateId } from "@/lib/id"
 import { getDeviceId } from "@/lib/device-id"
+import { normalizeReceiptAdjustment } from "@/lib/receipt/adjustment-splitting"
 
 type CreateReceiptParams = {
   metadata: { businessName?: string; totalInCents: number }
   lineItems: Omit<ReceiptLineItem, "id">[]
-  adjustments: Omit<ReceiptAdjustment, "id">[]
+  adjustments: ReceiptScan["adjustments"]
   imageUrl: string
   deviceId?: string // Optional deviceId override
 }
@@ -31,10 +32,9 @@ export class Receipt {
         ...item,
         id: generateId(),
       })),
-      adjustments: params.adjustments.map((adj) => ({
-        ...adj,
-        id: generateId(),
-      })),
+      adjustments: params.adjustments.map((adj) =>
+        normalizeReceiptAdjustment({ ...adj, id: generateId() })
+      ),
       ownerId: deviceId,
       hash: "",
     }

@@ -1,25 +1,40 @@
 "use client"
 
-import { useState } from "react"
+import {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ForwardedRef,
+} from "react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Loader2, Plus, X } from "lucide-react"
 import type { Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
+import { DEFAULT_ADJUSTMENT_SPLIT_METHOD } from "@/lib/receipt/adjustment-splitting"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 
-export default function EditItemsView({
-  receipt,
-  setHasEditChanges,
-  onSave,
-  isSaving = false,
-}: {
-  receipt: Receipt
-  setHasEditChanges: (hasEditChanges: boolean) => void
-  onSave: (receipt: Receipt) => void
-  isSaving?: boolean
-}) {
+export type EditItemsViewHandle = {
+  saveIfNeeded: () => Promise<boolean>
+}
+
+const EditItemsView = forwardRef(function EditItemsView(
+  {
+    receipt,
+    setHasEditChanges,
+    onSave,
+    isSaving = false,
+  }: {
+    receipt: Receipt
+    setHasEditChanges: (hasEditChanges: boolean) => void
+    onSave: (receipt: Receipt, options?: { navigateAfter?: boolean }) => void | Promise<void>
+    isSaving?: boolean
+  },
+  ref: ForwardedRef<EditItemsViewHandle>
+) {
+  const isDirtyRef = useRef(false)
   const [editedReceipt, setEditedReceipt] = useState({
     ...receipt,
     lineItems: receipt.lineItems.map((item) => ({
@@ -34,8 +49,13 @@ export default function EditItemsView({
   })
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
-  const handleMetadataChange = (field: keyof Receipt["metadata"], value: string) => {
+  const markDirty = () => {
+    isDirtyRef.current = true
     setHasEditChanges(true)
+  }
+
+  const handleMetadataChange = (field: keyof Receipt["metadata"], value: string) => {
+    markDirty()
     setEditedReceipt((prev) => ({
       ...prev,
       metadata: { ...prev.metadata, [field]: value },
@@ -43,7 +63,7 @@ export default function EditItemsView({
   }
 
   const handleItemChange = (id: string, field: keyof ReceiptLineItem, value: string) => {
-    setHasEditChanges(true)
+    markDirty()
     setEditedReceipt((prev) => ({
       ...prev,
       lineItems: prev.lineItems.map((item) =>
@@ -58,7 +78,7 @@ export default function EditItemsView({
   }
 
   const handleAdjustmentChange = (id: string, field: keyof ReceiptAdjustment, value: string) => {
-    setHasEditChanges(true)
+    markDirty()
     setEditedReceipt((prev) => ({
       ...prev,
       adjustments: prev.adjustments.map((adj) =>
@@ -73,7 +93,7 @@ export default function EditItemsView({
   }
 
   const addItem = () => {
-    setHasEditChanges(true)
+    markDirty()
     const newId = Math.max(0, ...editedReceipt.lineItems.map((i) => Number.parseInt(i.id))) + 1
     setEditedReceipt((prev) => ({
       ...prev,
@@ -85,7 +105,7 @@ export default function EditItemsView({
   }
 
   const removeItem = (id: string) => {
-    setHasEditChanges(true)
+    markDirty()
     setEditedReceipt((prev) => ({
       ...prev,
       lineItems: prev.lineItems.filter((item) => item.id !== id),
@@ -93,7 +113,7 @@ export default function EditItemsView({
   }
 
   const addAdjustment = () => {
-    setHasEditChanges(true)
+    markDirty()
     const newId = Math.max(0, ...editedReceipt.adjustments.map((a) => Number.parseInt(a.id))) + 1
     setEditedReceipt((prev) => ({
       ...prev,
@@ -103,14 +123,14 @@ export default function EditItemsView({
           id: newId.toString(),
           name: "",
           amountInCents: "0.00",
-          splitting: { method: "proportional", portions: [] },
+          splitting: { method: DEFAULT_ADJUSTMENT_SPLIT_METHOD, portions: [] },
         },
       ],
     }))
   }
 
   const removeAdjustment = (id: string) => {
-    setHasEditChanges(true)
+    markDirty()
     setEditedReceipt((prev) => ({
       ...prev,
       adjustments: prev.adjustments.filter((adj) => adj.id !== id),
@@ -156,27 +176,60 @@ export default function EditItemsView({
     return Object.keys(newErrors).length === 0 && calculateTotal() !== "ERR!"
   }
 
-  const handleSave = () => {
-    if (validateReceipt()) {
-      const updatedReceipt = {
-        ...editedReceipt,
-        lineItems: editedReceipt.lineItems.map((item) => ({
-          ...item,
-          quantity: Number.parseInt(item.quantity),
-          totalPriceInCents: Math.round(Number.parseFloat(item.totalPriceInCents) * 100),
-        })),
-        adjustments: editedReceipt.adjustments.map((adjustment) => ({
-          ...adjustment,
-          amountInCents: Math.round(Number.parseFloat(adjustment.amountInCents) * 100),
-        })),
-      }
-      onSave(updatedReceipt)
-    } else {
+  const buildPersistedReceipt = (): Receipt => ({
+    ...editedReceipt,
+    lineItems: editedReceipt.lineItems.map((item) => ({
+      ...item,
+      quantity: Number.parseInt(item.quantity),
+      totalPriceInCents: Math.round(Number.parseFloat(item.totalPriceInCents) * 100),
+    })),
+    adjustments: editedReceipt.adjustments.map((adjustment) => ({
+      ...adjustment,
+      amountInCents: Math.round(Number.parseFloat(adjustment.amountInCents) * 100),
+    })),
+  })
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      saveIfNeeded: async () => {
+        if (!isDirtyRef.current) return true
+        if (!validateReceipt()) {
+          toast({
+            title: "Validation error",
+            description: "Please correct the errors before saving.",
+            variant: "destructive",
+          })
+          return false
+        }
+        try {
+          await Promise.resolve(onSave(buildPersistedReceipt(), { navigateAfter: false }))
+          isDirtyRef.current = false
+          setHasEditChanges(false)
+          return true
+        } catch {
+          return false
+        }
+      },
+    }),
+    [onSave, setHasEditChanges, editedReceipt]
+  )
+
+  const handleSave = async () => {
+    if (!validateReceipt()) {
       toast({
         title: "Validation error",
         description: "Please correct the errors before saving.",
         variant: "destructive",
       })
+      return
+    }
+    try {
+      await Promise.resolve(onSave(buildPersistedReceipt()))
+      isDirtyRef.current = false
+      setHasEditChanges(false)
+    } catch {
+      // Parent shows error toast
     }
   }
 
@@ -191,7 +244,10 @@ export default function EditItemsView({
         />
         <Input
           value={editedReceipt.billName}
-          onChange={(e) => setEditedReceipt((prev) => ({ ...prev, billName: e.target.value }))}
+          onChange={(e) => {
+            markDirty()
+            setEditedReceipt((prev) => ({ ...prev, billName: e.target.value }))
+          }}
           placeholder="Bill Name"
           className="text-sm font-handwriting text-center mt-2"
         />
@@ -297,4 +353,6 @@ export default function EditItemsView({
       </div>
     </Card>
   )
-}
+})
+
+export default EditItemsView

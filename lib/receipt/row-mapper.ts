@@ -1,4 +1,5 @@
 import { Receipt } from "@/lib/types"
+import { normalizeReceiptAdjustment } from "@/lib/receipt/adjustment-splitting"
 
 // Type matching the Supabase receipts table columns
 export type ReceiptRow = {
@@ -48,7 +49,9 @@ export function fromRow(row: ReceiptRow): Receipt {
     metadata: row.metadata as Receipt["metadata"],
     people: row.people as Receipt["people"],
     lineItems: row.line_items as Receipt["lineItems"],
-    adjustments: row.adjustments as Receipt["adjustments"],
+    adjustments: (row.adjustments as Receipt["adjustments"]).map((a) =>
+      normalizeReceiptAdjustment(a)
+    ),
     ownerId: row.owner_id,
     deviceId: row.device_id,
     isShared: row.is_shared,

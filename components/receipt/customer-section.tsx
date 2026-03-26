@@ -20,7 +20,7 @@ export default function CustomerSection({
   isExpanded: boolean
   onToggle: () => void
   onRemove: (person: Person) => void
-  onAdd: (name: string) => void
+  onAdd: (name: string) => Promise<boolean>
   isOwner: boolean
 }) {
   const [isAddPersonDialogOpen, setIsAddPersonDialogOpen] = useState(false)
