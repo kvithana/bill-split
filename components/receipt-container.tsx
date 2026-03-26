@@ -40,6 +40,8 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   const [scrollPosition, setScrollPosition] = useState<{ [key: string]: number }>({})
   const [hasEditChanges, setHasEditChanges] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSavingSplit, setIsSavingSplit] = useState(false)
+  const [isSettling, setIsSettling] = useState(false)
   const router = useRouter()
   const [showNav, setShowNav] = useState(false)
   const [isReceiptMounted, setIsReceiptMounted] = useState(false)
@@ -146,6 +148,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   const updateLineItems = async (lineItems: ReceiptLineItem[]) => {
     try {
       setLoading(true)
+      setIsSavingSplit(true)
       await updateLineItemsAction(lineItems)
       handleViewChange("display")
     } catch (err) {
@@ -156,12 +159,14 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
       })
     } finally {
       setLoading(false)
+      setIsSavingSplit(false)
     }
   }
 
   const handleSettle = async () => {
     try {
       setLoading(true)
+      setIsSettling(true)
       const deviceId = getDeviceId()
       const response = await fetch(`/api/receipts/${id}`, {
         method: "PUT",
@@ -182,12 +187,14 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
       })
     } finally {
       setLoading(false)
+      setIsSettling(false)
     }
   }
 
   const updateAdjustments = async (adjustments: ReceiptAdjustment[]) => {
     try {
       setLoading(true)
+      setIsSavingSplit(true)
       await updateAdjustmentsAction(adjustments)
       handleViewChange("display")
     } catch (err) {
@@ -198,6 +205,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
       })
     } finally {
       setLoading(false)
+      setIsSavingSplit(false)
     }
   }
 
@@ -305,6 +313,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
                     onUpdateAdjustments={updateAdjustments}
                     onBack={() => handleViewChange("display")}
                     onAddPerson={addPerson}
+                    isSaving={isSavingSplit}
                   />
                 )}
                 {viewMode === "summary" && (
@@ -313,6 +322,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
                     isOwner={true}
                     onMakeCollaborative={receipt && !receipt.isShared ? moveToCloud : undefined}
                     onSettle={receipt?.isShared && !receipt?.isSettled ? handleSettle : undefined}
+                    isSettling={isSettling}
                   />
                 )}
               </>

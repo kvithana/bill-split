@@ -4,7 +4,17 @@ import { useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Minus, Percent, Equal, Sliders, UserPlus, UserMinus, ArrowLeft } from "lucide-react"
+import {
+  Plus,
+  Minus,
+  Percent,
+  Equal,
+  Sliders,
+  UserPlus,
+  UserMinus,
+  ArrowLeft,
+  Loader2,
+} from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import type { Receipt, ReceiptAdjustment, ReceiptLineItem, Person } from "@/lib/types"
@@ -21,13 +31,15 @@ export default function SplittingView({
   onUpdateAdjustments,
   onBack,
   onAddPerson,
+  isSaving = false,
 }: {
   receipt: Receipt
   itemId: string
-  onUpdateLineItems: (lineItems: ReceiptLineItem[]) => void
-  onUpdateAdjustments: (adjustments: ReceiptAdjustment[]) => void
+  onUpdateLineItems: (lineItems: ReceiptLineItem[]) => void | Promise<void>
+  onUpdateAdjustments: (adjustments: ReceiptAdjustment[]) => void | Promise<void>
   onBack: () => void
   onAddPerson: (person: Person) => Promise<boolean>
+  isSaving?: boolean
 }) {
   const [editedReceipt, setEditedReceipt] = useState(receipt)
   const [newPersonName, setNewPersonName] = useState("")
@@ -140,7 +152,7 @@ export default function SplittingView({
     }
   }
 
-  const onSave = () => {
+  const handleSave = async () => {
     // Helper function to filter valid portions
     const filterValidPortions = (portions: { personId: string; portions: number }[] = []) =>
       portions.filter((p) => p.personId && p.personId.trim() !== "")
@@ -168,9 +180,9 @@ export default function SplittingView({
     }
 
     if (isLineItem(item)) {
-      onUpdateLineItems(cleanedReceipt.lineItems)
+      await Promise.resolve(onUpdateLineItems(cleanedReceipt.lineItems))
     } else {
-      onUpdateAdjustments(cleanedReceipt.adjustments)
+      await Promise.resolve(onUpdateAdjustments(cleanedReceipt.adjustments))
     }
   }
 
@@ -477,7 +489,10 @@ export default function SplittingView({
         <Button variant="outline" onClick={onBack}>
           Back
         </Button>
-        <Button onClick={onSave}>Save Changes</Button>
+        <Button onClick={() => void handleSave()} disabled={isSaving}>
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isSaving ? "Saving…" : "Save Changes"}
+        </Button>
       </CardFooter>
     </Card>
   )

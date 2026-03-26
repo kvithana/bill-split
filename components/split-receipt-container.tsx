@@ -40,6 +40,7 @@ export default function SplitReceiptContainer({
   const isStandalone = useStandalone()
   const [scrollPosition, setScrollPosition] = useState<{ [key: string]: number }>({})
   const [loading, setLoading] = useState(false)
+  const [isSavingSplit, setIsSavingSplit] = useState(false)
   const [isReceiptMounted, setIsReceiptMounted] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
 
@@ -138,6 +139,7 @@ export default function SplitReceiptContainer({
   const handleUpdateLineItems = async (lineItems: ReceiptLineItem[]) => {
     try {
       setLoading(true)
+      setIsSavingSplit(true)
       await updateLineItems(lineItems)
       setViewMode("display")
     } catch (err) {
@@ -149,6 +151,7 @@ export default function SplitReceiptContainer({
       })
     } finally {
       setLoading(false)
+      setIsSavingSplit(false)
     }
   }
 
@@ -189,6 +192,7 @@ export default function SplitReceiptContainer({
   const handleUpdateAdjustments = async (adjustments: ReceiptAdjustment[]) => {
     try {
       setLoading(true)
+      setIsSavingSplit(true)
       await updateAdjustments(adjustments)
       setViewMode("display")
     } catch (err) {
@@ -200,6 +204,7 @@ export default function SplitReceiptContainer({
       })
     } finally {
       setLoading(false)
+      setIsSavingSplit(false)
     }
   }
 
@@ -306,6 +311,7 @@ export default function SplitReceiptContainer({
                     onUpdateAdjustments={handleUpdateAdjustments}
                     onBack={() => handleViewChange("display")}
                     onAddPerson={handleAddPerson}
+                    isSaving={isSavingSplit}
                   />
                 )}
 

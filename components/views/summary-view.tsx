@@ -6,7 +6,16 @@ import { Button } from "@/components/ui/button"
 import type { Receipt, Person } from "@/lib/types"
 import { getColorForPerson } from "@/lib/colors"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { AlertTriangle, ChevronDown, ChevronUp, InfoIcon, Share2, CloudIcon, CheckCircle } from "lucide-react"
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  InfoIcon,
+  Share2,
+  CloudIcon,
+  CheckCircle,
+  Loader2,
+} from "lucide-react"
 import {
   calculateAdjustmentAmount,
   calculatePersonTotal,
@@ -27,7 +36,8 @@ type Props = {
   shareUrl?: string
   isOwner?: boolean
   onMakeCollaborative?: () => Promise<{ receiptId: string; shareKey: string } | null>
-  onSettle?: () => void
+  onSettle?: () => void | Promise<void>
+  isSettling?: boolean
 }
 
 type ItemSummary = {
@@ -42,10 +52,16 @@ export default function SummaryView({
   isOwner = false,
   onMakeCollaborative,
   onSettle,
+  isSettling = false,
 }: Props) {
   const [expandedPerson, setExpandedPerson] = useState<string | null>(highlightPersonId || null)
   const [expandedUnallocated, setExpandedUnallocated] = useState<boolean>(false)
   const [isSettleDialogOpen, setIsSettleDialogOpen] = useState(false)
+
+  const handleConfirmSettle = async () => {
+    await onSettle?.()
+    setIsSettleDialogOpen(false)
+  }
 
   const getPersonItems = (personId: string): ItemSummary[] => {
     const lineItems = receipt.lineItems
@@ -250,8 +266,10 @@ export default function SummaryView({
         {isOwner && receipt.isShared && !receipt.isSettled && onSettle && (
           <div className="border-t border-dashed border-gray-300 pt-4 mt-2">
             <button
+              type="button"
               onClick={() => setIsSettleDialogOpen(true)}
-              className="w-full py-3 border border-dashed border-green-700 text-green-800 text-xs uppercase font-mono hover:bg-green-50 transition-colors flex items-center justify-center gap-2"
+              disabled={isSettling}
+              className="w-full py-3 border border-dashed border-green-700 text-green-800 text-xs uppercase font-mono hover:bg-green-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
             >
               <CheckCircle className="h-4 w-4" />
               Mark bill as settled
@@ -303,18 +321,25 @@ export default function SummaryView({
             <p className="text-xs text-gray-500">No further changes can be made by anyone.</p>
           </div>
           <div className="flex justify-between border-t border-dashed border-gray-300 pt-4">
-            <Button variant="ghost" onClick={() => setIsSettleDialogOpen(false)} className="text-gray-500 font-mono">
+            <Button
+              variant="ghost"
+              onClick={() => setIsSettleDialogOpen(false)}
+              className="text-gray-500 font-mono"
+              disabled={isSettling}
+            >
               CANCEL
             </Button>
             <Button
-              onClick={() => {
-                setIsSettleDialogOpen(false)
-                onSettle?.()
-              }}
+              onClick={() => void handleConfirmSettle()}
               className="bg-green-800 text-white hover:bg-green-900 font-mono"
+              disabled={isSettling}
             >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              SETTLE
+              {isSettling ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4 mr-2" />
+              )}
+              {isSettling ? "Working…" : "SETTLE"}
             </Button>
           </div>
         </DialogContent>

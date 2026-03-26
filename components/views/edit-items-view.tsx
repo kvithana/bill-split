@@ -348,7 +348,7 @@ const EditItemsView = forwardRef(function EditItemsView(
       <div className="p-4 mt-2">
         <Button onClick={handleSave} className="w-full" disabled={isSaving}>
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Save Changes
+          {isSaving ? "Saving…" : "Save Changes"}
         </Button>
       </div>
     </Card>
