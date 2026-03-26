@@ -52,9 +52,9 @@ export default function ReceiptLineItemRow({
       }}
     >
       <div className="flex-1 text-left">
-        <div className="w-full flex items-center">
-          <span className="font-bold">{item.name}</span>
-          <span className="text-gray-500 ml-2">x{item.quantity}</span>
+        <div className="w-full text-wrap font-bold">
+          <span className="text-gray-500 mr-1 mb-1 text-xs font-normal">{item.quantity}x</span>
+          {item.name}
         </div>
         {!!item.splitting?.portions.length && (
           <div className="">

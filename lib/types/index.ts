@@ -58,6 +58,7 @@ export const ReceiptSchema = z.object({
   isShared: z.boolean().optional(), // Whether this receipt is shared/in the cloud
   lastSyncedAt: z.string().optional(), // Last time this receipt was synced
   shareKey: z.string().optional(), // Key for generating shareable URLs
+  hash: z.string().default(""), // Hash of the receipt
 })
 
 export const ReceiptScanSchema = z.object({

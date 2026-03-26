@@ -48,6 +48,7 @@ export default function SplitReceiptContainer({
     updateLineItems,
     updateAdjustments,
     refresh,
+    isRealtimeConnected,
   } = useReceipt(receiptId, { shareKey: shareKey, initialReceipt: initialReceipt })
 
   // Ensure the receipt is ready for display
@@ -284,6 +285,7 @@ export default function SplitReceiptContainer({
           onBack={() => window.history.back()}
           scrollToBottomButton={false}
           isCloud={receipt?.isShared === true}
+          isRealtimeConnected={isRealtimeConnected}
           onRefresh={refresh}
           loading={loading}
         />

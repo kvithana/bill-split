@@ -31,6 +31,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     removePerson: removePersonAction,
     moveToCloud,
     refresh,
+    isRealtimeConnected,
   } = useReceipt(id)
 
   const [viewMode, setViewMode] = useState<ViewMode>("display")
@@ -277,6 +278,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
           onBack={() => setIsVisible(false)}
           scrollToBottomButton={hasEditChanges}
           isCloud={receipt?.isShared === true}
+          isRealtimeConnected={isRealtimeConnected}
           onRefresh={refresh}
           loading={loading}
         />

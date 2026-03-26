@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useCallback, useEffect, useMemo } from "react"
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { useReceiptStore } from "@/data/state"
 import { Receipt, ReceiptLineItem, ReceiptAdjustment, Person } from "@/lib/types"
 import { getDeviceId } from "@/lib/device-id"
 import { generateId } from "@/lib/id"
-import { pick } from "ramda"
+import { toast } from "@/hooks/use-toast"
+import { computeReceiptHash } from "@/lib/receipt/hash"
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client"
+import { fromRow } from "@/lib/receipt/row-mapper"
 
 // Type for receipt source - determines where the receipt is stored
 export type ReceiptSource = "local" | "cloud"
@@ -16,19 +19,18 @@ export type UseReceiptResult = {
   isLoading: boolean
   error: string | null
   isCloud: boolean
+  isRealtimeConnected: boolean
   // Mutations
   updateLineItems: (lineItems: ReceiptLineItem[]) => Promise<void>
   updateAdjustments: (adjustments: ReceiptAdjustment[]) => Promise<void>
   addPerson: (person: Person) => Promise<void>
   removePerson: (personId: string) => Promise<void>
-  moveToCloud: () => Promise<{ receiptId: string; shareKey: string } | null> // Returns cloud ID and shareKey if successful
-  refresh: () => Promise<void> // Force refresh from the source
+  moveToCloud: () => Promise<{ receiptId: string; shareKey: string } | null>
+  refresh: () => Promise<void>
 }
 
 /**
- * Hook to manage receipt data, abstracting away the difference between local and cloud storage
- * @param receiptId The ID of the receipt to manage
- * @returns An object with receipt data and mutation methods
+ * Hook to manage receipt data, abstracting away the difference between local and cloud storage.
  */
 export function useReceipt(
   receiptId: string,
@@ -38,21 +40,17 @@ export function useReceipt(
   const [receipt, setReceipt] = useState<Receipt | null>(options?.initialReceipt || null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false)
 
-  // Use a ref to track if we're currently fetching to prevent double fetches
   const [isFetching, setIsFetching] = useState(false)
 
-  // Memoize the selector function to avoid recreation on each render
   const receiptSelector = useCallback(
     (state: { receipts: Record<string, Receipt> }) => state.receipts[receiptId],
     [receiptId]
   )
 
-  // Get state from Zustand with memoized selectors
   const localReceipt = useReceiptStore(receiptSelector)
 
-  // Memoize the store actions to prevent re-renders when the component re-renders
-  // but the store hasn't changed
   const storeActions = useMemo(() => {
     return {
       updateLineItems: useReceiptStore.getState().updateLineItems,
@@ -61,11 +59,13 @@ export function useReceipt(
       removePerson: useReceiptStore.getState().removePerson,
       updateReceipt: useReceiptStore.getState().updateReceipt,
     }
-  }, []) // Empty dependency array as we only need these once
+  }, [])
 
-  // Check if receipt is a cloud receipt
-  const isReceiptCloud = useCallback((receipt: Receipt | null | undefined) => {
-    return receipt && "isShared" in receipt && receipt.isShared === true
+  const isRealtimeConnectedRef = useRef(false)
+  isRealtimeConnectedRef.current = isRealtimeConnected
+
+  const isReceiptCloud = useCallback((r: Receipt | null | undefined) => {
+    return r && "isShared" in r && r.isShared === true
   }, [])
 
   const headers = useMemo(() => {
@@ -81,28 +81,20 @@ export function useReceipt(
     }
   }, [options?.shareKey])
 
-  // Fetch receipt data based on the source
   const fetchReceipt = useCallback(
     async (skipLoadingState = false) => {
-      // Prevent double fetches in progress
       if (isFetching) return
 
       try {
-        // Only set loading state if not skipping and not already loading
-        if (!skipLoadingState) {
-          setIsLoading(true)
-        }
+        if (!skipLoadingState) setIsLoading(true)
         setIsFetching(true)
         setError(null)
 
         if (source === "local") {
-          // Local receipts come directly from the store
           setReceipt(localReceipt || options?.initialReceipt || null)
-
           return
         }
 
-        // Cloud receipts are fetched from the API
         const response = await fetch(`/api/receipts/${receiptId}`, {
           method: "GET",
           headers,
@@ -114,15 +106,12 @@ export function useReceipt(
 
         const data = await response.json()
         if (data.success && data.receipt) {
-          const newHash = receiptHash(data.receipt)
-          const currentHash = receiptHash(localReceipt)
-          console.log("Setting receipt from cloud", {
-            newHash,
-            currentHash,
-          })
+          const [newHash, currentHash] = await Promise.all([
+            computeReceiptHash(data.receipt),
+            receipt ? computeReceiptHash(receipt) : Promise.resolve(null),
+          ])
 
           if (newHash !== currentHash) {
-            console.log("Updating local receipt from cloud")
             storeActions.updateReceipt(receiptId, data.receipt)
             setReceipt(data.receipt)
           }
@@ -131,7 +120,6 @@ export function useReceipt(
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
-        // Fall back to local state if cloud fetch fails
         if (source === "cloud" && localReceipt) {
           setReceipt(localReceipt)
           setSource("local")
@@ -142,27 +130,61 @@ export function useReceipt(
       }
     },
     [receiptId, source, localReceipt]
-  ) // Removed isLoading from dependencies
+  )
 
-  // First determine the source based on receipt properties
   useEffect(() => {
     const newSource = isReceiptCloud(receipt) ? "cloud" : "local"
-
-    if (newSource !== source) {
-      setSource(newSource)
-    }
+    if (newSource !== source) setSource(newSource)
   }, [receipt, source, isReceiptCloud])
 
-  // Then fetch the receipt whenever source changes or on initial mount
   useEffect(() => {
     fetchReceipt()
-    // This effect should run when source or fetchReceipt changes
   }, [source, fetchReceipt])
 
+  // Supabase Realtime subscription for cloud receipts
+  useEffect(() => {
+    if (source !== "cloud") return
+
+    const supabase = getSupabaseBrowserClient()
+    const channel = supabase
+      .channel(`receipt:${receiptId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "receipts",
+          filter: `id=eq.${receiptId}`,
+        },
+        async (payload) => {
+           
+          const incoming = fromRow(payload.new as any)
+          const [incomingHash, currentHash] = await Promise.all([
+            computeReceiptHash(incoming),
+            receipt ? computeReceiptHash(receipt) : Promise.resolve(null),
+          ])
+          if (incomingHash !== currentHash) {
+            storeActions.updateReceipt(receiptId, incoming)
+            setReceipt(incoming)
+          }
+        }
+      )
+      .subscribe((status) => {
+        setIsRealtimeConnected(status === "SUBSCRIBED")
+      })
+
+    return () => {
+      supabase.removeChannel(channel)
+      setIsRealtimeConnected(false)
+    }
+  }, [source, receiptId])
+
   const setReceiptFromCloud = useCallback(
-    (incoming: Receipt) => {
-      const newHash = receiptHash(incoming)
-      const currentHash = receipt ? receiptHash(receipt) : null
+    async (incoming: Receipt) => {
+      const [newHash, currentHash] = await Promise.all([
+        computeReceiptHash(incoming),
+        receipt ? computeReceiptHash(receipt) : Promise.resolve(null),
+      ])
       if (newHash !== currentHash) {
         storeActions.updateReceipt(receiptId, incoming)
         setReceipt(incoming)
@@ -171,241 +193,229 @@ export function useReceipt(
     [receiptId, receipt, storeActions]
   )
 
-  // Update line items based on the source
+  const handleApiResponse = useCallback(
+    async (response: Response, operationName: string) => {
+      const data = await response.json()
+
+      if (data.success && data.receipt) {
+        await setReceiptFromCloud(data.receipt)
+        return true
+      } else {
+        if (data.syncRequired) {
+          // Only show toast if not getting live updates via Realtime
+          if (!isRealtimeConnectedRef.current) {
+            toast({
+              title: "Receipt out of sync",
+              description: "Someone else has updated this receipt. Refreshing your view.",
+              variant: "destructive",
+              duration: 5000,
+            })
+          }
+          await fetchReceipt(false)
+          return false
+        }
+
+        throw new Error(data.error || `Unknown error during ${operationName}`)
+      }
+    },
+    [fetchReceipt, setReceiptFromCloud]
+  )
+
   const updateLineItems = useCallback(
     async (lineItems: ReceiptLineItem[]) => {
       if (!receipt) return
 
       try {
         if (source === "local") {
-          // Update local state
           storeActions.updateLineItems(receiptId, lineItems)
-          // Update the receipt state to immediately reflect changes
           setReceipt((prev) => (prev ? { ...prev, lineItems } : null))
         } else {
-          // For cloud state, set loading to indicate operation in progress
           setIsLoading(true)
-
-          // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/line-items`, {
             method: "PUT",
             headers,
-            body: JSON.stringify({ lineItems }),
+            body: JSON.stringify({ lineItems, hash: receipt.hash }),
           })
 
           if (!response.ok) {
             throw new Error(`Failed to update line items: ${response.statusText}`)
           }
-          // Refresh the receipt data from the cloud, but skip setting loading state again
-          const data = await response.json()
-          if (data.success && data.receipt) {
-            setReceiptFromCloud(data.receipt)
-          } else {
-            throw new Error(data.error || "Unknown error")
+
+          const success = await handleApiResponse(response, "update line items")
+          if (success) {
+            toast({ title: "Changes saved", description: "Line items updated successfully", duration: 1000 })
           }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
+        toast({
+          title: "Failed to save changes",
+          description: err instanceof Error ? err.message : "Unknown error occurred",
+          variant: "destructive",
+        })
       } finally {
-        // Ensure loading is set to false after operation
         setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, storeActions, setReceiptFromCloud]
+    [receipt, source, receiptId, storeActions, handleApiResponse]
   )
 
-  // Update adjustments based on the source
   const updateAdjustments = useCallback(
     async (adjustments: ReceiptAdjustment[]) => {
       if (!receipt) return
 
       try {
         if (source === "local") {
-          // Update local state
           storeActions.updateAdjustments(receiptId, adjustments)
-          // Update the receipt state
           setReceipt((prev) => (prev ? { ...prev, adjustments } : null))
         } else {
-          // For cloud state, set loading to indicate operation in progress
           setIsLoading(true)
-
-          // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/adjustments`, {
             method: "PUT",
             headers,
-            body: JSON.stringify({ adjustments }),
+            body: JSON.stringify({ adjustments, hash: receipt.hash }),
           })
 
           if (!response.ok) {
             throw new Error(`Failed to update adjustments: ${response.statusText}`)
           }
 
-          const data = await response.json()
-          if (data.success && data.receipt) {
-            setReceiptFromCloud(data.receipt)
-          } else {
-            throw new Error(data.error || "Unknown error")
+          const success = await handleApiResponse(response, "update adjustments")
+          if (success) {
+            toast({ title: "Changes saved", description: "Adjustments updated successfully", duration: 1000 })
           }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
+        toast({
+          title: "Failed to save changes",
+          description: err instanceof Error ? err.message : "Unknown error occurred",
+          variant: "destructive",
+        })
       } finally {
-        // Ensure loading is set to false after operation
         setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, storeActions, setReceiptFromCloud]
+    [receipt, source, receiptId, storeActions, handleApiResponse]
   )
 
-  // Add a person based on the source
   const addPerson = useCallback(
     async (person: Person) => {
       if (!receipt) return
 
       try {
         if (source === "local") {
-          // Update local state
           storeActions.addPerson(receiptId, person)
-          // Update the receipt state
           setReceipt((prev) => (prev ? { ...prev, people: [...prev.people, person] } : null))
         } else {
-          // For cloud state, set loading to indicate operation in progress
           setIsLoading(true)
-
-          // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/people`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ person }),
+            body: JSON.stringify({ person, hash: receipt.hash }),
           })
 
           if (!response.ok) {
             throw new Error(`Failed to add person: ${response.statusText}`)
           }
 
-          const data = await response.json()
-          if (data.success && data.receipt) {
-            setReceiptFromCloud(data.receipt)
-          } else {
-            throw new Error(data.error || "Unknown error")
+          const success = await handleApiResponse(response, "add person")
+          if (success) {
+            toast({ title: "Changes saved", description: `${person.name} added successfully`, duration: 1000 })
           }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
+        toast({
+          title: "Failed to add person",
+          description: err instanceof Error ? err.message : "Unknown error occurred",
+          variant: "destructive",
+        })
       } finally {
-        // Ensure loading is set to false after operation
         setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, storeActions, setReceiptFromCloud]
+    [receipt, source, receiptId, storeActions, handleApiResponse]
   )
 
-  // Remove a person based on the source
   const removePerson = useCallback(
     async (personId: string) => {
       if (!receipt) return
 
       try {
         if (source === "local") {
-          // Update local state
           storeActions.removePerson(receiptId, personId)
-          // Update the receipt state
           setReceipt((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  people: prev.people.filter((p) => p.id !== personId),
-                }
-              : null
+            prev ? { ...prev, people: prev.people.filter((p) => p.id !== personId) } : null
           )
         } else {
-          // For cloud state, set loading to indicate operation in progress
           setIsLoading(true)
+          const personName = receipt.people.find((p) => p.id === personId)?.name || "Person"
 
-          // Update cloud state
           const response = await fetch(`/api/receipts/${receiptId}/people/${personId}`, {
             method: "DELETE",
             headers,
+            body: JSON.stringify({ hash: receipt.hash }),
           })
 
           if (!response.ok) {
             throw new Error(`Failed to remove person: ${response.statusText}`)
           }
 
-          const data = await response.json()
-          if (data.success && data.receipt) {
-            setReceiptFromCloud(data.receipt)
-          } else {
-            throw new Error(data.error || "Unknown error")
+          const success = await handleApiResponse(response, "remove person")
+          if (success) {
+            toast({ title: "Changes saved", description: `${personName} removed successfully`, duration: 1000 })
           }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
+        toast({
+          title: "Failed to remove person",
+          description: err instanceof Error ? err.message : "Unknown error occurred",
+          variant: "destructive",
+        })
       } finally {
-        // Ensure loading is set to false after operation
         setIsLoading(false)
       }
     },
-    [receipt, source, receiptId, storeActions, setReceiptFromCloud]
+    [receipt, source, receiptId, storeActions, handleApiResponse]
   )
 
-  // Move a local receipt to the cloud
   const moveToCloud = useCallback(async () => {
     if (!receipt) return null
 
-    // If already a cloud receipt, just return the ID
     if (source === "cloud") {
-      // If it already has a shareKey, return it, otherwise generate a new one
-      if (receipt.shareKey) {
-        return { receiptId, shareKey: receipt.shareKey }
-      }
+      if (receipt.shareKey) return { receiptId, shareKey: receipt.shareKey }
 
-      // Generate a new shareKey if it doesn't exist
       const shareKey = generateId()
       try {
-        // Update the cloud receipt with the new shareKey
         const response = await fetch(`/api/receipts/${receiptId}`, {
           method: "PUT",
           headers,
-          body: JSON.stringify({
-            shareKey,
-          }),
+          body: JSON.stringify({ shareKey }),
         })
 
         if (response.ok) {
-          // Update our local state
-          const updatedReceipt = {
-            ...receipt,
-            shareKey,
-          } as Receipt
+          const updatedReceipt = { ...receipt, shareKey } as Receipt
           setReceipt(updatedReceipt)
           return { receiptId, shareKey }
         }
 
-        // If update failed, just return the ID without a shareKey
         return { receiptId, shareKey: "" }
-      } catch (err) {
-        // If there's an error, still return the ID but without a shareKey
+      } catch {
         return { receiptId, shareKey: "" }
       }
     }
 
     try {
       setIsLoading(true)
-
-      // Generate a shareKey for this receipt
       const shareKey = generateId()
 
-      // Call the API to create a cloud version
       const response = await fetch("/api/receipts/create", {
         method: "POST",
         headers,
         body: JSON.stringify({
-          receipt: {
-            ...receipt,
-            deviceId: getDeviceId(),
-            shareKey, // Include the generated shareKey
-          },
+          receipt: { ...receipt, deviceId: getDeviceId(), shareKey },
         }),
       })
 
@@ -416,20 +426,10 @@ export function useReceipt(
       const data = await response.json()
 
       if (data.success && data.receiptId) {
-        // Update local receipt to indicate it's now in the cloud
-        const updatedReceipt = {
-          ...receipt,
-          isShared: true,
-          shareKey, // Include the shareKey in our local state
-        } as Receipt
-
-        // Update local storage with the updated receipt
+        const updatedReceipt = { ...receipt, isShared: true, shareKey } as Receipt
         storeActions.updateReceipt(receiptId, updatedReceipt)
-
-        // Update our state
         setReceipt(updatedReceipt)
         setSource("cloud")
-
         return { receiptId: data.receiptId, shareKey }
       } else {
         throw new Error(data.error || "Unknown error")
@@ -442,18 +442,17 @@ export function useReceipt(
     }
   }, [receipt, source, receiptId, storeActions])
 
-  // Force refresh from the source - memoized once and stable
   const refresh = useCallback(async () => {
-    await fetchReceipt(false) // Explicitly set loading state for manual refresh
+    await fetchReceipt(false)
   }, [fetchReceipt])
 
-  // Memoize the return value to avoid unnecessary re-renders in consumers
   return useMemo(
     () => ({
       receipt,
       isLoading,
       error,
       isCloud: source === "cloud",
+      isRealtimeConnected,
       updateLineItems,
       updateAdjustments,
       addPerson,
@@ -466,6 +465,7 @@ export function useReceipt(
       isLoading,
       error,
       source,
+      isRealtimeConnected,
       updateLineItems,
       updateAdjustments,
       addPerson,
@@ -474,18 +474,4 @@ export function useReceipt(
       refresh,
     ]
   )
-}
-
-function receiptHash(receipt: Receipt) {
-  const string = JSON.stringify(
-    pick(["lineItems", "people", "adjustments", "deviceId", "billName"], receipt)
-  )
-
-  // simple hash function
-  let hash = 0
-  for (let i = 0; i < string.length; i++) {
-    const char = string.charCodeAt(i)
-    hash = (hash << 5) - hash + char
-  }
-  return hash
 }

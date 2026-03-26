@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { useStandalone } from "@/hooks/use-standalone"
 import { cn } from "@/lib/utils"
 import { TutorialTooltip } from "./tutorial-tooltips"
-import { RefreshButton } from "./refresh-button"
+import { RealtimeStatusBadge } from "./realtime-status-badge"
 
 type FloatingNavProps = {
   hideEdit?: boolean
@@ -14,6 +14,7 @@ type FloatingNavProps = {
   onBack?: () => void
   scrollToBottomButton?: boolean
   isCloud?: boolean
+  isRealtimeConnected?: boolean
   onRefresh?: () => Promise<void>
   loading?: boolean
 }
@@ -24,6 +25,7 @@ export default function FloatingNav({
   onViewChange,
   scrollToBottomButton,
   isCloud,
+  isRealtimeConnected = false,
   onRefresh,
   loading,
 }: FloatingNavProps) {
@@ -233,7 +235,11 @@ export default function FloatingNav({
         )}
       </AnimatePresence>
       {isCloud && onRefresh && (
-        <RefreshButton isCloud={true} onRefresh={onRefresh} loading={loading} />
+        <RealtimeStatusBadge
+          isConnected={isRealtimeConnected}
+          onRefresh={onRefresh}
+          loading={loading}
+        />
       )}
     </>
   )

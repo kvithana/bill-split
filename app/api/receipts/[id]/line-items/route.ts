@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { CloudReceiptStorage } from "@/lib/receipt/cloud-storage"
-import { ReceiptLineItem, ReceiptLineItemSchema } from "@/lib/types"
+import { ReceiptLineItemSchema } from "@/lib/types"
 import { z } from "zod"
 import { validateRequest } from "@/lib/auth/validate-request"
 
@@ -8,6 +8,7 @@ import { validateRequest } from "@/lib/auth/validate-request"
 const UpdateLineItemsSchema = z.object({
   lineItems: z.array(ReceiptLineItemSchema),
   shareKey: z.string().optional(), // Optional shareKey for shared links
+  hash: z.string().optional(), // Hash of the receipt for concurrency control
 })
 
 /**
@@ -36,22 +37,41 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(authResult, { status: authResult.code })
     }
 
-    // Update the receipt with new line items
-    const updatedReceipt = await CloudReceiptStorage.updateReceipt(receiptId, {
-      lineItems: data.lineItems,
-    })
-
-    if (!updatedReceipt) {
-      return NextResponse.json(
-        { success: false, error: "Receipt not found or update failed" },
-        { status: 404 }
+    try {
+      // Update the receipt with new line items
+      const updatedReceipt = await CloudReceiptStorage.updateReceipt(
+        receiptId,
+        {
+          lineItems: data.lineItems,
+        },
+        data.hash
       )
-    }
 
-    return NextResponse.json({
-      success: true,
-      receipt: updatedReceipt,
-    })
+      if (!updatedReceipt) {
+        return NextResponse.json(
+          { success: false, error: "Receipt not found or update failed" },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        receipt: updatedReceipt,
+      })
+    } catch (error) {
+      // Handle hash mismatch error specifically
+      if (error instanceof Error && error.message === "Receipt has been modified by another user") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: error.message,
+            syncRequired: true,
+          },
+          { status: 409 } // Conflict status code
+        )
+      }
+      throw error // Re-throw for generic error handling
+    }
   } catch (error) {
     console.error("Error updating line items:", error)
     const message = error instanceof Error ? error.message : "Failed to update line items"

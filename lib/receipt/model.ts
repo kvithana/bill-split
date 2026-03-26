@@ -36,6 +36,7 @@ export class Receipt {
         id: generateId(),
       })),
       ownerId: deviceId,
+      hash: "",
     }
 
     return new Receipt(receipt)

@@ -10,14 +10,14 @@ export const slideVariants = {
     y: 0,
     transition: {
       duration: fromScan ? 5 : 1,
-      ease: "easeOut",
+      ease: "easeOut" as const,
     },
   }),
   exit: {
     y: "100%",
     transition: {
       duration: 0.5,
-      ease: "easeOut",
+      ease: "easeOut" as const,
     },
   },
 }

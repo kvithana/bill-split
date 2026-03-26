@@ -7,6 +7,7 @@ import { PersonSchema } from "@/lib/types"
 const AddPersonSchema = z.object({
   person: PersonSchema,
   shareKey: z.string().optional(), // Optional shareKey for shared links
+  hash: z.string().optional(), // Hash of the receipt for concurrency control
 })
 
 /**
@@ -38,21 +39,36 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json(authResult, { status: authResult.code })
     }
 
-    // Add the person to the receipt
-    const updatedReceipt = await CloudReceiptStorage.addPerson(receiptId, person)
+    try {
+      // Add the person to the receipt
+      const updatedReceipt = await CloudReceiptStorage.addPerson(receiptId, person, data.hash)
 
-    if (!updatedReceipt) {
-      return NextResponse.json(
-        { success: false, error: "Receipt not found or update failed" },
-        { status: 404 }
-      )
+      if (!updatedReceipt) {
+        return NextResponse.json(
+          { success: false, error: "Receipt not found or update failed" },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        receipt: updatedReceipt,
+        personId: person.id, // Return the person ID for clients that may need it
+      })
+    } catch (error) {
+      // Handle hash mismatch error specifically
+      if (error instanceof Error && error.message === "Receipt has been modified by another user") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: error.message,
+            syncRequired: true,
+          },
+          { status: 409 } // Conflict status code
+        )
+      }
+      throw error // Re-throw for generic error handling
     }
-
-    return NextResponse.json({
-      success: true,
-      receipt: updatedReceipt,
-      personId: person.id, // Return the person ID for clients that may need it
-    })
   } catch (error) {
     console.error("Error adding person:", error)
     const message = error instanceof Error ? error.message : "Failed to add person"

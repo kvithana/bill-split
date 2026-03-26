@@ -90,6 +90,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
 
   const DEMO_RECEIPT: Receipt = {
     id: generateId(),
+    hash: "",
     imageUrl: "https://placehold.co/400x600",
     createdAt: new Date().toISOString(),
     billName: "Lunch at Burger Place",

@@ -1,24 +1,28 @@
 import { NextRequest, NextResponse } from "next/server"
 import { CloudReceiptStorage } from "@/lib/receipt/cloud-storage"
-import { Receipt } from "@/lib/types"
-import { redis } from "@/lib/upstash/client"
 import { z } from "zod"
 import { validateRequest } from "@/lib/auth/validate-request"
 
-// Schema for the request body when updating a receipt
+// Only allow updating safe, non-structural fields via this generic endpoint.
+// Line items, adjustments, and people have their own dedicated endpoints.
 const UpdateReceiptSchema = z.object({
-  updates: z.record(z.any()).optional(),
-  shareKey: z.string().optional(), // Optional shareKey for shared links
+  billName: z.string().optional(),
+  metadata: z
+    .object({
+      businessName: z.string().optional(),
+      totalInCents: z.number(),
+      dateAsISOString: z.string().optional(),
+    })
+    .optional(),
+  shareKey: z.string().optional(),
 })
 
 /**
  * GET /api/receipts/[id] - Get a single receipt by ID
- * Can also accept ?key=shareKey to fetch by shareKey instead of device auth
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: receiptId } = await params
-    const url = new URL(request.url)
 
     const authResult = await validateRequest(request, receiptId)
     if (!authResult.success) {
@@ -33,42 +37,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 /**
- * PUT /api/receipts/[id] - Update a receipt
+ * PUT /api/receipts/[id] - Update receipt metadata (billName, metadata, shareKey)
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: receiptId } = await params
     const body = await request.json()
 
-    // Validate the request body
     const { success, data, error } = UpdateReceiptSchema.safeParse(body)
     if (!success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid request data",
-          details: error.issues,
-        },
+        { success: false, error: "Invalid request data", details: error.issues },
         { status: 400 }
       )
     }
 
-    // Extract updates from the body
-    let updates: Partial<Receipt> = {}
-
-    if (data.updates && typeof data.updates === "object") {
-      updates = data.updates
-    } else if (typeof body === "object") {
-      // Allow direct properties in the body (excluding shareKey)
-      const { shareKey, ...otherProps } = body
-      updates = otherProps
-    }
-
+    const updates = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined))
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { success: false, error: "No valid updates provided" },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: "No valid updates provided" }, { status: 400 })
     }
 
     const authResult = await validateRequest(request, receiptId)
@@ -76,9 +62,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(authResult, { status: authResult.code })
     }
 
-    // Update the receipt
     const updatedReceipt = await CloudReceiptStorage.updateReceipt(receiptId, updates)
-
     if (!updatedReceipt) {
       return NextResponse.json(
         { success: false, error: "Receipt not found or update failed" },
@@ -89,11 +73,41 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({
       success: true,
       receipt: updatedReceipt,
-      shareKey: updatedReceipt.shareKey, // Explicitly include shareKey in the response
+      shareKey: updatedReceipt.shareKey,
     })
   } catch (error) {
     console.error("Error updating receipt:", error)
     const message = error instanceof Error ? error.message : "Failed to update receipt"
     return NextResponse.json({ success: false, error: message }, { status: 500 })
+  }
+}
+
+/**
+ * DELETE /api/receipts/[id] - Delete a receipt (owner only)
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: receiptId } = await params
+    const deviceId = request.headers.get("X-Device-ID")
+
+    if (!deviceId) {
+      return NextResponse.json({ success: false, error: "Missing device ID" }, { status: 401 })
+    }
+
+    const deleted = await CloudReceiptStorage.deleteReceipt(receiptId, deviceId)
+    if (!deleted) {
+      return NextResponse.json(
+        { success: false, error: "Receipt not found or not authorized" },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting receipt:", error)
+    return NextResponse.json({ success: false, error: "Failed to delete receipt" }, { status: 500 })
   }
 }

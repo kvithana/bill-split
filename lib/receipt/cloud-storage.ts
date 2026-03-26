@@ -1,144 +1,137 @@
-import { redis } from "@/lib/upstash/client"
+import { supabase } from "@/lib/supabase/client"
 import { Receipt } from "@/lib/types"
+import { computeReceiptHash } from "./hash"
+import { toRow, fromRow } from "./row-mapper"
 
 /**
- * Utility class for cloud receipt storage operations
+ * Utility class for cloud receipt storage operations using Supabase.
  */
 export class CloudReceiptStorage {
-  private static RECEIPT_KEY_PREFIX = "receipt:"
-  private static TTL_DAYS = 30 // Default TTL for receipts - 30 days
-
   /**
-   * Store a receipt in the cloud
-   * @param receipt The receipt to store
-   * @returns The stored receipt with updated cloud metadata
+   * Store a receipt in the cloud (insert or replace).
    */
   static async saveReceipt(receipt: Receipt): Promise<Receipt> {
-    // Add or update cloud metadata
-    const cloudReceipt = {
+    const hash = await computeReceiptHash(receipt)
+    const cloudReceipt: Receipt = {
       ...receipt,
       isShared: true,
       lastSyncedAt: new Date().toISOString(),
-    } as Receipt
+      hash,
+    }
 
-    // Store in Redis with TTL (30 days)
-    await redis.set(
-      this.getReceiptKey(receipt.id),
-      cloudReceipt
-      //   { ex: this.TTL_DAYS * 24 * 60 * 60 } // TTL in seconds
-    )
+    const { error } = await supabase.from("receipts").upsert(toRow(cloudReceipt))
+    if (error) throw new Error(`Failed to save receipt: ${error.message}`)
 
     return cloudReceipt
   }
 
   /**
-   * Get a receipt from the cloud
-   * @param receiptId The receipt ID to fetch
-   * @returns The receipt or null if not found
+   * Get a receipt from the cloud by ID. Returns null if not found.
    */
   static async getReceipt(receiptId: string): Promise<Receipt | null> {
-    try {
-      const receipt = await redis.get<Receipt>(this.getReceiptKey(receiptId))
-      return receipt
-    } catch (error) {
-      console.error("Error fetching receipt from cloud:", error)
-      return null
+    const { data, error } = await supabase
+      .from("receipts")
+      .select("*")
+      .eq("id", receiptId)
+      .single()
+
+    if (error) {
+      if (error.code === "PGRST116") return null // not found
+      throw new Error(`Failed to fetch receipt: ${error.message}`)
     }
+
+    return data ? fromRow(data) : null
   }
 
   /**
-   * Update specific fields of a receipt
-   * @param receiptId The receipt ID to update
-   * @param updates Partial receipt data to apply
-   * @returns The updated receipt or null if not found/failed
+   * Update specific fields of a receipt with optional hash-based conflict detection.
+   * Throws "Receipt has been modified by another user" if hash mismatch.
+   * Returns null if the receipt does not exist.
    */
   static async updateReceipt(
     receiptId: string,
-    updates: Partial<Receipt>
+    updates: Partial<Receipt>,
+    hash?: string
   ): Promise<Receipt | null> {
-    try {
-      // Get current receipt
-      const currentReceipt = await this.getReceipt(receiptId)
-      if (!currentReceipt) {
-        return null
-      }
+    const currentReceipt = await this.getReceipt(receiptId)
+    if (!currentReceipt) return null
 
-      // Apply updates
-      const updatedReceipt = {
-        ...currentReceipt,
-        ...updates,
-        lastSyncedAt: new Date().toISOString(),
-      } as Receipt
-
-      // Save the updated receipt
-      await this.saveReceipt(updatedReceipt)
-      return updatedReceipt
-    } catch (error) {
-      console.error("Error updating receipt in cloud:", error)
-      return null
+    if (hash && currentReceipt.hash !== hash) {
+      throw new Error("Receipt has been modified by another user")
     }
+
+    const updatedReceipt: Receipt = {
+      ...currentReceipt,
+      ...updates,
+      lastSyncedAt: new Date().toISOString(),
+    }
+
+    return await this.saveReceipt(updatedReceipt)
   }
 
   /**
-   * Add a person to a receipt
-   * @param receiptId The receipt ID
-   * @param person The person to add
-   * @returns The updated receipt or null if not found/failed
+   * Add a person to a receipt. No-ops if the person already exists.
+   * Throws "Receipt has been modified by another user" on hash mismatch.
    */
   static async addPerson(
     receiptId: string,
-    person: { id: string; name: string }
+    person: { id: string; name: string },
+    hash?: string
   ): Promise<Receipt | null> {
-    try {
-      const receipt = await this.getReceipt(receiptId)
-      if (!receipt) {
-        return null
-      }
+    const receipt = await this.getReceipt(receiptId)
+    if (!receipt) return null
 
-      // Don't add duplicate people
-      if (receipt.people.some((p) => p.id === person.id)) {
-        return receipt
-      }
+    if (receipt.people.some((p) => p.id === person.id)) return receipt
 
-      // Update people array
-      return await this.updateReceipt(receiptId, {
-        people: [...receipt.people, person],
-      })
-    } catch (error) {
-      console.error("Error adding person to receipt:", error)
-      return null
-    }
+    return await this.updateReceipt(receiptId, { people: [...receipt.people, person] }, hash)
   }
 
   /**
-   * Remove a person from a receipt
-   * @param receiptId The receipt ID
-   * @param personId The person ID to remove
-   * @returns The updated receipt or null if not found/failed
+   * Remove a person from a receipt.
+   * Throws "Receipt has been modified by another user" on hash mismatch.
    */
-  static async removePerson(receiptId: string, personId: string): Promise<Receipt | null> {
-    try {
-      const receipt = await this.getReceipt(receiptId)
-      if (!receipt) {
-        return null
-      }
+  static async removePerson(
+    receiptId: string,
+    personId: string,
+    hash?: string
+  ): Promise<Receipt | null> {
+    const receipt = await this.getReceipt(receiptId)
+    if (!receipt) return null
 
-      // Update people array
-      return await this.updateReceipt(receiptId, {
-        people: receipt.people.filter((p) => p.id !== personId),
-      })
-    } catch (error) {
-      console.error("Error removing person from receipt:", error)
-      return null
-    }
+    return await this.updateReceipt(
+      receiptId,
+      { people: receipt.people.filter((p) => p.id !== personId) },
+      hash
+    )
   }
 
   /**
-   * Generate a key for storing receipts in Redis
-   * @param receiptId The receipt ID
-   * @returns The Redis key
+   * List all receipts for a given device (owner or contributor).
    */
-  private static getReceiptKey(receiptId: string): string {
-    return `${this.RECEIPT_KEY_PREFIX}${receiptId}`
+  static async listReceiptsByDevice(deviceId: string): Promise<Receipt[]> {
+    const { data, error } = await supabase
+      .from("receipts")
+      .select("*")
+      .or(`owner_id.eq.${deviceId},device_id.eq.${deviceId}`)
+
+    if (error) throw new Error(`Failed to list receipts: ${error.message}`)
+
+    return (data ?? []).map(fromRow)
+  }
+
+  /**
+   * Delete a receipt. Only the owner (matching deviceId) can delete.
+   * Returns true if deleted, false if not found or not authorized.
+   */
+  static async deleteReceipt(receiptId: string, deviceId: string): Promise<boolean> {
+    const { error, count } = await supabase
+      .from("receipts")
+      .delete({ count: "exact" })
+      .eq("id", receiptId)
+      .eq("owner_id", deviceId)
+
+    if (error) throw new Error(`Failed to delete receipt: ${error.message}`)
+
+    return (count ?? 0) > 0
   }
 }

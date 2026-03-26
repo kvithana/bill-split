@@ -72,7 +72,7 @@ export function ShareReceiptDialog({
               <div>
                 <p className="font-bold text-xs">Real-time updates</p>
                 <p className="text-xs text-gray-600">
-                  Changes made by others will be available when you refresh or resync the receipt
+                  Changes made by others appear automatically — no refresh needed
                 </p>
               </div>
             </div>

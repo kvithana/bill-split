@@ -1,16 +1,7 @@
-import { dirname } from "path"
-import { fileURLToPath } from "url"
-import { FlatCompat } from "@eslint/eslintrc"
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-})
+import coreWebVitals from "eslint-config-next/core-web-vitals"
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...coreWebVitals,
   {
     rules: {
       "arrow-body-style": "off",
@@ -18,6 +9,8 @@ const eslintConfig = [
       "@typescript-eslint/no-unused-vars": "off",
       "react/no-unescaped-entities": "off",
       "@next/next/no-img-element": "off",
+      // New in react-hooks v7; conflicts with reading sessionStorage / matchMedia in effects.
+      "react-hooks/set-state-in-effect": "off",
     },
   },
 ]
