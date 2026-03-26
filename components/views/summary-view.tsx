@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import type { Receipt, Person } from "@/lib/types"
 import { getColorForPerson } from "@/lib/colors"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { AlertTriangle, ChevronDown, ChevronUp, InfoIcon, Share2, CloudIcon } from "lucide-react"
+import { AlertTriangle, ChevronDown, ChevronUp, InfoIcon, Share2, CloudIcon, CheckCircle } from "lucide-react"
 import {
   calculateAdjustmentAmount,
   calculatePersonTotal,
@@ -19,6 +19,7 @@ import {
 import { motion } from "framer-motion"
 import { ShareReceiptButton } from "../share-receipt-button"
 import { UNALLOCATED_ID, UNALLOCATED_NAME } from "@/lib/constants"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 type Props = {
   receipt: Receipt
@@ -26,6 +27,7 @@ type Props = {
   shareUrl?: string
   isOwner?: boolean
   onMakeCollaborative?: () => Promise<{ receiptId: string; shareKey: string } | null>
+  onSettle?: () => void
 }
 
 type ItemSummary = {
@@ -39,9 +41,11 @@ export default function SummaryView({
   shareUrl,
   isOwner = false,
   onMakeCollaborative,
+  onSettle,
 }: Props) {
   const [expandedPerson, setExpandedPerson] = useState<string | null>(highlightPersonId || null)
   const [expandedUnallocated, setExpandedUnallocated] = useState<boolean>(false)
+  const [isSettleDialogOpen, setIsSettleDialogOpen] = useState(false)
 
   const getPersonItems = (personId: string): ItemSummary[] => {
     const lineItems = receipt.lineItems
@@ -143,6 +147,13 @@ export default function SummaryView({
         <p className="text-xs text-gray-500">{new Date(receipt.createdAt).toLocaleDateString()}</p>
         <p className="text-sm font-handwriting mt-2">{receipt.billName}</p>
       </CardHeader>
+      {receipt.isSettled && (
+        <div className="flex items-center justify-center gap-2 bg-green-800 text-white py-2 text-xs uppercase font-bold tracking-widest">
+          <CheckCircle className="h-3 w-3" />
+          Bill Settled
+        </div>
+      )}
+
       <CardContent className="p-2 space-y-4">
         {receipt.people.map((person: Person, index) => (
           <div key={person.id} className={`border-b border-dashed border-gray-300 pb-2`}>
@@ -236,6 +247,18 @@ export default function SummaryView({
           <span>{formatCurrency(calculateReceiptTotal(receipt))}</span>
         </div>
 
+        {isOwner && receipt.isShared && !receipt.isSettled && onSettle && (
+          <div className="border-t border-dashed border-gray-300 pt-4 mt-2">
+            <button
+              onClick={() => setIsSettleDialogOpen(true)}
+              className="w-full py-3 border border-dashed border-green-700 text-green-800 text-xs uppercase font-mono hover:bg-green-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <CheckCircle className="h-4 w-4" />
+              Mark bill as settled
+            </button>
+          </div>
+        )}
+
         {shareUrl && (
           <div className="mt-6 pt-2 text-center">
             <div className="border-t border-b border-dashed border-gray-300 py-3">
@@ -269,6 +292,33 @@ export default function SummaryView({
           </div>
         )}
       </CardContent>
+
+      <Dialog open={isSettleDialogOpen} onOpenChange={setIsSettleDialogOpen}>
+        <DialogContent className="sm:max-w-sm font-mono">
+          <DialogHeader className="text-center border-b border-dashed border-gray-300 pb-4">
+            <DialogTitle className="text-sm uppercase font-bold">Mark as Settled?</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center space-y-2">
+            <p className="text-sm">Once settled, this bill becomes read-only.</p>
+            <p className="text-xs text-gray-500">No further changes can be made by anyone.</p>
+          </div>
+          <div className="flex justify-between border-t border-dashed border-gray-300 pt-4">
+            <Button variant="ghost" onClick={() => setIsSettleDialogOpen(false)} className="text-gray-500 font-mono">
+              CANCEL
+            </Button>
+            <Button
+              onClick={() => {
+                setIsSettleDialogOpen(false)
+                onSettle?.()
+              }}
+              className="bg-green-800 text-white hover:bg-green-900 font-mono"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              SETTLE
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

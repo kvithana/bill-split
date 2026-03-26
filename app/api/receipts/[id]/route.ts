@@ -15,6 +15,7 @@ const UpdateReceiptSchema = z.object({
     })
     .optional(),
   shareKey: z.string().optional(),
+  isSettled: z.boolean().optional(),
 })
 
 /**
@@ -60,6 +61,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const authResult = await validateRequest(request, receiptId)
     if (!authResult.success) {
       return NextResponse.json(authResult, { status: authResult.code })
+    }
+
+    // Only the owner can settle the bill
+    if (data.isSettled !== undefined) {
+      const deviceId = request.headers.get("X-Device-ID")
+      if (!deviceId) {
+        return NextResponse.json(
+          { success: false, error: "Only the bill owner can settle it" },
+          { status: 403 }
+        )
+      }
     }
 
     const updatedReceipt = await CloudReceiptStorage.updateReceipt(receiptId, updates)

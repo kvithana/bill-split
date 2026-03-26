@@ -36,6 +36,7 @@ export default function SplitReceiptContainer({
 }: SplitReceiptContainerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("display")
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const [quickViewItemId, setQuickViewItemId] = useState<string | null>(null)
   const isStandalone = useStandalone()
   const [scrollPosition, setScrollPosition] = useState<{ [key: string]: number }>({})
   const [loading, setLoading] = useState(false)
@@ -291,7 +292,8 @@ export default function SplitReceiptContainer({
                     isOwner={false}
                     onViewSummary={() => handleViewChange("summary")}
                     currentPersonId={currentPerson.id}
-                    onQuickClaim={handleQuickClaim}
+                    onQuickClaim={displayReceipt.isSettled ? undefined : handleQuickClaim}
+                    onQuickView={(id) => setQuickViewItemId(id)}
                   />
                 )}
 
@@ -332,6 +334,107 @@ export default function SplitReceiptContainer({
           loading={loading}
         />
       )}
+
+      {/* Item quick view dialog */}
+      {displayReceipt && (() => {
+        const qItem = quickViewItemId
+          ? displayReceipt.lineItems.find((i) => i.id === quickViewItemId) ??
+            displayReceipt.adjustments.find((i) => i.id === quickViewItemId)
+          : null
+        const assignedPortions = (qItem?.splitting?.portions ?? []).filter(
+          (p) => p.personId !== UNALLOCATED_ID
+        )
+        const hasUnallocated = (qItem?.splitting?.portions ?? []).some(
+          (p) => p.personId === UNALLOCATED_ID
+        )
+        const totalCents =
+          qItem && "totalPriceInCents" in qItem
+            ? qItem.totalPriceInCents
+            : qItem && "amountInCents" in qItem
+            ? qItem.amountInCents
+            : 0
+
+        return (
+          <Dialog
+            open={!!quickViewItemId}
+            onOpenChange={(open) => !open && setQuickViewItemId(null)}
+          >
+            <DialogContent className="sm:max-w-sm font-mono">
+              {qItem && (
+                <>
+                  <DialogHeader className="text-center border-b border-dashed border-gray-300 pb-4">
+                    <DialogTitle className="text-base font-bold uppercase">{qItem.name}</DialogTitle>
+                    <p className="text-sm text-gray-500">{formatCurrency(totalCents)}</p>
+                  </DialogHeader>
+
+                  <div className="py-2 space-y-1">
+                    <p className="text-xs uppercase text-gray-400 mb-2">Claimed by</p>
+                    {assignedPortions.length === 0 && !hasUnallocated ? (
+                      <p className="text-sm text-gray-400 italic">Nobody yet</p>
+                    ) : (
+                      <>
+                        {assignedPortions.map((portion) => {
+                          const person = displayReceipt.people.find(
+                            (p) => p.id === portion.personId
+                          )
+                          const personIndex = displayReceipt.people.findIndex(
+                            (p) => p.id === portion.personId
+                          )
+                          const isMe = portion.personId === currentPerson.id
+                          return person ? (
+                            <div
+                              key={portion.personId}
+                              className="flex items-center justify-between py-1"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="w-2 h-2 rounded-full shrink-0"
+                                  style={{ backgroundColor: getColorForPerson(personIndex) }}
+                                />
+                                <span className={isMe ? "font-bold" : ""}>
+                                  {person.name}
+                                  {isMe && (
+                                    <span className="text-xs text-gray-400 font-normal ml-1">
+                                      (you)
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                              {portion.portions > 1 && (
+                                <span className="text-xs text-gray-400">×{portion.portions}</span>
+                              )}
+                            </div>
+                          ) : null
+                        })}
+                        {hasUnallocated && (
+                          <div className="flex items-center gap-2 py-1 text-yellow-600">
+                            <span className="w-2 h-2 rounded-full shrink-0 bg-yellow-400" />
+                            <span className="text-sm">{UNALLOCATED_NAME}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  <div className="border-t border-dashed border-gray-300 pt-4">
+                    <button
+                      onClick={() => {
+                        const id = quickViewItemId!
+                        setQuickViewItemId(null)
+                        handleItemSelect(id)
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-gray-300 text-xs uppercase hover:bg-gray-50 transition-colors"
+                    >
+                      <Scissors className="h-3 w-3" />
+                      Edit split
+                    </button>
+                  </div>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
+        )
+      })()}
     </div>
   )
 }

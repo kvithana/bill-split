@@ -8,9 +8,10 @@ import SummaryView from "./views/summary-view"
 import { Person, Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types"
 import FloatingNav from "./floating-nav"
 import { toast } from "@/hooks/use-toast"
-import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
+import { AlertCircle, ArrowLeft, Loader2, CheckCircle } from "lucide-react"
 import { Button } from "./ui/button"
 import { useRouter } from "next/navigation"
+import { getDeviceId } from "@/lib/device-id"
 import { motion, AnimatePresence } from "framer-motion"
 import { EmptyState } from "./empty-state"
 import { cn } from "@/lib/utils"
@@ -149,6 +150,32 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     }
   }
 
+  const handleSettle = async () => {
+    try {
+      setLoading(true)
+      const deviceId = getDeviceId()
+      const response = await fetch(`/api/receipts/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Device-ID": deviceId,
+        },
+        body: JSON.stringify({ isSettled: true }),
+      })
+      if (!response.ok) throw new Error("Failed to settle bill")
+      await refresh()
+      toast({ title: "Bill settled", description: "This receipt is now read-only." })
+    } catch (err) {
+      toast({
+        title: "Failed to settle bill",
+        description: err instanceof Error ? err.message : "An unknown error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const updateAdjustments = async (adjustments: ReceiptAdjustment[]) => {
     try {
       setLoading(true)
@@ -263,6 +290,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
                     receipt={receipt!}
                     isOwner={true}
                     onMakeCollaborative={receipt && !receipt.isShared ? moveToCloud : undefined}
+                    onSettle={receipt?.isShared && !receipt?.isSettled ? handleSettle : undefined}
                   />
                 )}
               </>

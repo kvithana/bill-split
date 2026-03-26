@@ -53,6 +53,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(authResult, { status: authResult.code })
     }
 
+    if (authResult.receipt.toData().isSettled) {
+      return NextResponse.json(
+        { success: false, error: "This bill has been settled and can no longer be modified" },
+        { status: 423 }
+      )
+    }
+
     try {
       // Update the receipt with new adjustments
       const updatedReceipt = await CloudReceiptStorage.updateReceipt(

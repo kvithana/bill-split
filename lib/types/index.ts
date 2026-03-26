@@ -59,6 +59,7 @@ export const ReceiptSchema = z.object({
   lastSyncedAt: z.string().optional(), // Last time this receipt was synced
   shareKey: z.string().optional(), // Key for generating shareable URLs
   hash: z.string().default(""), // Hash of the receipt
+  isSettled: z.boolean().optional(), // Whether the bill has been marked as settled (read-only)
 })
 
 export const ReceiptScanSchema = z.object({

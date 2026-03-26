@@ -39,6 +39,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json(authResult, { status: authResult.code })
     }
 
+    if (authResult.receipt.toData().isSettled) {
+      return NextResponse.json(
+        { success: false, error: "This bill has been settled and can no longer be modified" },
+        { status: 423 }
+      )
+    }
+
     try {
       // Add the person to the receipt
       const updatedReceipt = await CloudReceiptStorage.addPerson(receiptId, person, data.hash)

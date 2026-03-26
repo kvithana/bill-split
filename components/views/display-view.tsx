@@ -130,9 +130,22 @@ export default function DisplayView({
       />
 
       {!isOwner && (
-        <div className="mx-4 mt-3 mb-1 flex items-center gap-2 rounded-sm border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-500">
-          <span className="text-base">👇</span>
-          <span>Tap any item to claim what you ordered</span>
+        <div className={`mx-4 mt-3 mb-1 flex items-center gap-2 rounded-sm border border-dashed px-3 py-2 text-xs ${
+          receipt.isSettled
+            ? "border-green-300 bg-green-50 text-green-800"
+            : "border-gray-300 bg-gray-50 text-gray-500"
+        }`}>
+          {receipt.isSettled ? (
+            <>
+              <span className="text-base">✓</span>
+              <span>This bill has been settled — no further changes can be made</span>
+            </>
+          ) : (
+            <>
+              <span className="text-base">👇</span>
+              <span>Tap any item to claim what you ordered</span>
+            </>
+          )}
         </div>
       )}
 
@@ -177,9 +190,13 @@ export default function DisplayView({
         <div className="border-t border-dashed border-gray-300 p-4">
           <button
             onClick={onViewSummary}
-            className="w-full py-3 bg-black text-white text-sm uppercase font-mono hover:bg-gray-800 transition-colors"
+            className={`w-full py-3 text-white text-sm uppercase font-mono transition-colors ${
+              receipt.isSettled
+                ? "bg-green-800 hover:bg-green-900"
+                : "bg-black hover:bg-gray-800"
+            }`}
           >
-            See my share →
+            {receipt.isSettled ? "✓ View settled bill →" : "See my share →"}
           </button>
         </div>
       )}

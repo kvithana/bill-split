@@ -16,6 +16,7 @@ export type ReceiptRow = {
   share_key: string | null
   hash: string
   last_synced_at: string | null
+  is_settled: boolean
 }
 
 export function toRow(receipt: Receipt): ReceiptRow {
@@ -34,6 +35,7 @@ export function toRow(receipt: Receipt): ReceiptRow {
     share_key: receipt.shareKey ?? null,
     hash: receipt.hash,
     last_synced_at: receipt.lastSyncedAt ?? null,
+    is_settled: receipt.isSettled ?? false,
   }
 }
 
@@ -53,5 +55,6 @@ export function fromRow(row: ReceiptRow): Receipt {
     shareKey: row.share_key ?? undefined,
     hash: row.hash,
     lastSyncedAt: row.last_synced_at ?? undefined,
+    isSettled: row.is_settled ?? false,
   }
 }
