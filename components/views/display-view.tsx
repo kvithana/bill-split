@@ -21,6 +21,9 @@ export default function DisplayView({
   isOwner = true,
   onMakeCollaborative,
   onViewSummary,
+  currentPersonId,
+  onQuickClaim,
+  onQuickView,
 }: {
   receipt: Receipt
   onItemSelect: (id: string) => void
@@ -29,6 +32,9 @@ export default function DisplayView({
   isOwner?: boolean
   onMakeCollaborative?: () => Promise<{ receiptId: string; shareKey: string } | null>
   onViewSummary?: () => void
+  currentPersonId?: string
+  onQuickClaim?: (id: string) => void
+  onQuickView?: (id: string) => void
 }) {
   const { metadata, lineItems, adjustments, people } = receipt
   const contentRef = useRef<HTMLDivElement>(null)
@@ -125,7 +131,7 @@ export default function DisplayView({
 
       {!isOwner && (
         <div className="mx-4 mt-3 mb-1 flex items-center gap-2 rounded-sm border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-500">
-          <span className="text-base">👆</span>
+          <span className="text-base">👇</span>
           <span>Tap any item to claim what you ordered</span>
         </div>
       )}
@@ -139,6 +145,9 @@ export default function DisplayView({
               people={people}
               onItemSelect={onItemSelect}
               contentRef={contentRef}
+              currentPersonId={currentPersonId}
+              onQuickClaim={onQuickClaim}
+              onQuickView={onQuickView}
             />
           ))}
         </div>

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Minus, Percent, Equal, Sliders, UserPlus, UserMinus } from "lucide-react"
+import { Plus, Minus, Percent, Equal, Sliders, UserPlus, UserMinus, ArrowLeft } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import type { Receipt, ReceiptAdjustment, ReceiptLineItem, Person } from "@/lib/types"
@@ -283,7 +283,14 @@ export default function SplittingView({
 
   return (
     <Card className={"receipt w-full max-w-lg mx-auto font-mono text-sm"}>
-      <CardHeader className="text-center border-b border-dashed border-gray-300">
+      <CardHeader className="text-center border-b border-dashed border-gray-300 relative">
+        <button
+          onClick={onBack}
+          className="absolute left-0 top-1/2 -translate-y-1/2 p-4 flex items-center gap-1 text-gray-500 hover:text-gray-800 text-xs uppercase"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="sr-only md:not-sr-only">Back</span>
+        </button>
         <h2 className="text-lg font-bold">{item.name}</h2>
         <p className="text-sm">${(total / 100).toFixed(2)}</p>
       </CardHeader>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Receipt, Person, ReceiptLineItem, ReceiptAdjustment } from "@/lib/types"
 import { toast } from "@/hooks/use-toast"
 import { AnimatePresence, motion } from "framer-motion"
-import { Loader2, ArrowLeft } from "lucide-react"
+import { Loader2, ArrowLeft, Scissors } from "lucide-react"
 import DisplayView from "./views/display-view"
 import SplittingView from "./views/splitting-view"
 import SummaryView from "./views/summary-view"
@@ -14,6 +14,10 @@ import FloatingNav from "./floating-nav"
 import { useReceipt } from "@/hooks/use-receipt"
 import { Alert, AlertDescription, AlertTitle } from "./alert"
 import { slideVariants } from "@/lib/animations"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { formatCurrency } from "@/lib/calculations"
+import { getColorForPerson } from "@/lib/colors"
+import { UNALLOCATED_ID, UNALLOCATED_NAME } from "@/lib/constants"
 
 type ViewMode = "display" | "split" | "summary" | "edit"
 
@@ -146,6 +150,40 @@ export default function SplitReceiptContainer({
     }
   }
 
+  const handleQuickClaim = async (itemId: string) => {
+    if (!displayReceipt) return
+
+    const item = displayReceipt.lineItems.find((i) => i.id === itemId)
+    if (!item) return
+
+    const isAlreadyClaimed = item.splitting?.portions?.some(
+      (p) => p.personId === currentPerson.id
+    )
+
+    const currentPortions = item.splitting?.portions || []
+    const updatedPortions = isAlreadyClaimed
+      ? currentPortions.filter((p) => p.personId !== currentPerson.id)
+      : [...currentPortions, { personId: currentPerson.id, portions: 1 }]
+
+    const updatedItems = displayReceipt.lineItems.map((i) =>
+      i.id === itemId ? { ...i, splitting: { ...i.splitting, portions: updatedPortions } } : i
+    )
+
+    try {
+      setLoading(true)
+      await updateLineItems(updatedItems)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update item"
+      toast({
+        title: "Error updating item",
+        description: message,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleUpdateAdjustments = async (adjustments: ReceiptAdjustment[]) => {
     try {
       setLoading(true)
@@ -252,6 +290,8 @@ export default function SplitReceiptContainer({
                     onRemovePerson={handleRemovePerson}
                     isOwner={false}
                     onViewSummary={() => handleViewChange("summary")}
+                    currentPersonId={currentPerson.id}
+                    onQuickClaim={handleQuickClaim}
                   />
                 )}
 
