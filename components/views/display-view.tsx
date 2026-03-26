@@ -20,6 +20,7 @@ export default function DisplayView({
   onAddPerson,
   isOwner = true,
   onMakeCollaborative,
+  onViewSummary,
 }: {
   receipt: Receipt
   onItemSelect: (id: string) => void
@@ -27,6 +28,7 @@ export default function DisplayView({
   onAddPerson: (person: Person) => Promise<void>
   isOwner?: boolean
   onMakeCollaborative?: () => Promise<{ receiptId: string; shareKey: string } | null>
+  onViewSummary?: () => void
 }) {
   const { metadata, lineItems, adjustments, people } = receipt
   const contentRef = useRef<HTMLDivElement>(null)
@@ -121,6 +123,13 @@ export default function DisplayView({
         isOwner={isOwner}
       />
 
+      {!isOwner && (
+        <div className="mx-4 mt-3 mb-1 flex items-center gap-2 rounded-sm border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+          <span className="text-base">👆</span>
+          <span>Tap any item to claim what you ordered</span>
+        </div>
+      )}
+
       <CardContent className="p-2 md:p-4 space-y-2" ref={contentRef}>
         <div className="space-y-2">
           {lineItems.map((item) => (
@@ -154,6 +163,17 @@ export default function DisplayView({
         <span className="font-bold">Total</span>
         <span className="font-bold text-lg">{formatCurrency(calculateReceiptTotal(receipt))}</span>
       </CardFooter>
+
+      {!isOwner && onViewSummary && (
+        <div className="border-t border-dashed border-gray-300 p-4">
+          <button
+            onClick={onViewSummary}
+            className="w-full py-3 bg-black text-white text-sm uppercase font-mono hover:bg-gray-800 transition-colors"
+          >
+            See my share →
+          </button>
+        </div>
+      )}
 
       {/* Add confirmation dialog */}
       <ConfirmDialog

@@ -22,7 +22,7 @@ export default function NameSelectionDialog({
   existingPeople,
 }: NameSelectionDialogProps) {
   const [newName, setNewName] = useState("")
-  const [isAddingNew, setIsAddingNew] = useState(false)
+  const [isAddingNew, setIsAddingNew] = useState(existingPeople.length === 0)
 
   const handleSubmitNewName = (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,12 +39,16 @@ export default function NameSelectionDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md font-mono">
+      <DialogContent
+        className="sm:max-w-md font-mono"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader className="text-center border-b border-dashed border-gray-300 pb-4">
           <DialogTitle className="sr-only">Select or add your name</DialogTitle>
           <div className="uppercase text-lg font-bold">SPLIT // IT</div>
           <div className="text-xs text-gray-500">{new Date().toLocaleDateString()}</div>
-          <div className="mt-4 text-sm">CUSTOMER IDENTIFICATION</div>
+          <div className="mt-4 text-sm">Who&apos;s splitting this bill?</div>
         </DialogHeader>
 
         {isAddingNew ? (
@@ -82,7 +86,7 @@ export default function NameSelectionDialog({
           <div className="mt-4 space-y-4">
             {existingPeople.length > 0 && (
               <div className="space-y-3">
-                <div className="text-xs uppercase text-gray-500">Select your name:</div>
+                <div className="text-xs uppercase text-gray-500">Are you one of these?</div>
                 <div className="space-y-1 border-b border-dashed border-gray-300 pb-4">
                   {existingPeople.map((person) => (
                     <button
@@ -94,18 +98,14 @@ export default function NameSelectionDialog({
                         <User className="h-4 w-4 text-gray-400 mr-2" />
                         <span>{person.name}</span>
                       </div>
-                      <span className="text-xs text-gray-400">TAP TO SELECT</span>
+                      <span className="text-xs text-gray-400">→</span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className={cn("pt-2", existingPeople.length === 0 && "text-center")}>
-              {existingPeople.length === 0 && (
-                <div className="text-gray-500 mb-4 text-sm">No other people on this bill yet.</div>
-              )}
-
+            <div className="pt-2">
               <Button
                 type="button"
                 variant="outline"
@@ -113,8 +113,8 @@ export default function NameSelectionDialog({
                 onClick={() => setIsAddingNew(true)}
               >
                 <div className="flex flex-col items-center">
-                  <div className="text-sm mb-1">ADD MYSELF TO THIS BILL</div>
-                  <div className="text-xs text-gray-500">* New Customer *</div>
+                  <div className="text-sm mb-1">I&apos;m not on the list</div>
+                  <div className="text-xs text-gray-500">Add your name</div>
                 </div>
               </Button>
             </div>

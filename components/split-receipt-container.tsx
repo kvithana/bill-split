@@ -250,6 +250,8 @@ export default function SplitReceiptContainer({
                     onItemSelect={handleItemSelect}
                     onAddPerson={handleAddPerson}
                     onRemovePerson={handleRemovePerson}
+                    isOwner={false}
+                    onViewSummary={() => handleViewChange("summary")}
                   />
                 )}
 
@@ -268,7 +270,7 @@ export default function SplitReceiptContainer({
                   <SummaryView
                     highlightPersonId={currentPerson.id}
                     receipt={displayReceipt}
-                    shareUrl={`${window.location.origin}/split/${receiptId}?shareKey=${shareKey}`}
+                    shareUrl={`${window.location.origin}/split/${receiptId}?key=${shareKey}`}
                   />
                 )}
               </>

@@ -49,7 +49,6 @@ export function SplitReceiptPage() {
 
         if (data.success && data.receipt) {
           setReceipt(data.receipt)
-          setIsNameDialogOpen(false)
         } else {
           throw new Error(data.error || "Failed to load receipt")
         }
@@ -69,6 +68,27 @@ export function SplitReceiptPage() {
     fetchReceipt()
   }, [receiptId, shareKey])
 
+  // Auto-open name dialog or restore saved identity once receipt is loaded
+  useEffect(() => {
+    if (!receipt || selectedPerson) return
+
+    const saved = localStorage.getItem(`split-identity-${receiptId}`)
+    if (saved) {
+      try {
+        const savedPerson = JSON.parse(saved) as Person
+        const stillExists = receipt.people.find((p) => p.id === savedPerson.id)
+        if (stillExists) {
+          setSelectedPerson(savedPerson)
+          return
+        }
+      } catch {
+        // Ignore parse errors, fall through to open dialog
+      }
+    }
+
+    setIsNameDialogOpen(true)
+  }, [receipt, receiptId, selectedPerson])
+
   // Handler for when user selects or creates a name
   const handleNameSelection = async (selectedName: string, isExistingPerson: boolean) => {
     if (!receipt) return
@@ -78,6 +98,7 @@ export function SplitReceiptPage() {
         // Find the existing person in the receipt
         const person = receipt.people.find((p) => p.name === selectedName)
         if (person) {
+          localStorage.setItem(`split-identity-${receiptId}`, JSON.stringify(person))
           setSelectedPerson(person)
           setIsNameDialogOpen(false)
           return
@@ -109,6 +130,7 @@ export function SplitReceiptPage() {
       const data = await response.json()
 
       if (data.success && data.receipt) {
+        localStorage.setItem(`split-identity-${receiptId}`, JSON.stringify(newPerson))
         setReceipt(data.receipt)
         setSelectedPerson(newPerson)
         setIsNameDialogOpen(false)
@@ -206,15 +228,15 @@ export function SplitReceiptPage() {
                   `Bill from ${new Date(receipt.createdAt).toLocaleDateString()}`}
               </p>
 
-              <p className="text-sm mb-2">To start splitting this bill</p>
-              <p className="text-xs text-gray-500 mb-6">Please identify yourself below</p>
+              <p className="text-sm mb-2">You&apos;ve been invited to split this bill</p>
+              <p className="text-xs text-gray-500 mb-6">Claim what you ordered and see your share</p>
 
               <button
                 onClick={() => setIsNameDialogOpen(true)}
                 className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors border border-dashed border-gray-300"
               >
-                <div className="uppercase text-sm">Select Your Name</div>
-                <div className="text-xs mt-1 text-gray-300">or add yourself to this bill</div>
+                <div className="uppercase text-sm">Who&apos;s this for?</div>
+                <div className="text-xs mt-1 text-gray-300">tap to get started</div>
               </button>
             </div>
 
