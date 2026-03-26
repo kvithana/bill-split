@@ -116,10 +116,11 @@ export function SplitReceiptPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Share-Key": shareKey!,
         },
         body: JSON.stringify({
-          person: newPerson, // Using full person object format
-          shareKey, // Pass the shareKey for verification
+          person: newPerson,
+          shareKey,
         }),
       })
 
@@ -229,7 +230,9 @@ export function SplitReceiptPage() {
               </p>
 
               <p className="text-sm mb-2">You&apos;ve been invited to split this bill</p>
-              <p className="text-xs text-gray-500 mb-6">Claim what you ordered and see your share</p>
+              <p className="text-xs text-gray-500 mb-6">
+                Claim what you ordered and see your share
+              </p>
 
               <button
                 onClick={() => setIsNameDialogOpen(true)}
