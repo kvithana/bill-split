@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase/client"
 
 export const runtime = "nodejs"
@@ -10,12 +10,7 @@ export const dynamic = "force-dynamic"
  * Called daily by Vercel Cron to prevent the Supabase free-tier instance
  * from being paused due to inactivity.
  */
-export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization")
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
+export async function GET(_request: NextRequest) {
   const { count, error } = await supabase
     .from("receipts")
     .select("*", { count: "exact", head: true })
