@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Receipt, Person, ReceiptLineItem, ReceiptAdjustment } from "@/lib/types"
 import { toast } from "@/hooks/use-toast"
 import { AnimatePresence, motion } from "framer-motion"
-import { Loader2, ArrowLeft, Scissors } from "lucide-react"
+import { Loader2, Scissors, UserPlus } from "lucide-react"
 import DisplayView from "./views/display-view"
 import SplittingView from "./views/splitting-view"
 import SummaryView from "./views/summary-view"
@@ -23,18 +23,23 @@ type ViewMode = "display" | "split" | "summary" | "edit"
 
 interface SplitReceiptContainerProps {
   receipt: Receipt
-  currentPerson: Person
+  /** null = anonymous / not yet identified */
+  currentPerson: Person | null
+  onRequestIdentity?: () => void
   receiptId: string
   shareKey: string
+  initialView?: "display" | "summary"
 }
 
 export default function SplitReceiptContainer({
   receipt: initialReceipt,
   currentPerson,
+  onRequestIdentity,
   receiptId,
   shareKey,
+  initialView,
 }: SplitReceiptContainerProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>("display")
+  const [viewMode, setViewMode] = useState<ViewMode>(initialView ?? "display")
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [quickViewItemId, setQuickViewItemId] = useState<string | null>(null)
   const isStandalone = useStandalone()
@@ -44,7 +49,6 @@ export default function SplitReceiptContainer({
   const [isReceiptMounted, setIsReceiptMounted] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
 
-  // Use the hook instead of custom fetch logic
   const {
     receipt,
     isLoading,
@@ -57,43 +61,37 @@ export default function SplitReceiptContainer({
     isRealtimeConnected,
   } = useReceipt(receiptId, { shareKey: shareKey, initialReceipt: initialReceipt })
 
-  // Ensure the receipt is ready for display
   const [displayReceipt, setDisplayReceipt] = useState<Receipt | null>(null)
 
   // Move the current person to the beginning of the people array
   useEffect(() => {
-    if (receipt && currentPerson) {
-      // Create a new receipt with reordered people
-      const updatedReceipt = {
-        ...receipt,
-        people: [currentPerson, ...receipt.people.filter((p: Person) => p.id !== currentPerson.id)],
-      }
-
+    if (receipt) {
+      const updatedReceipt = currentPerson
+        ? {
+            ...receipt,
+            people: [currentPerson, ...receipt.people.filter((p: Person) => p.id !== currentPerson.id)],
+          }
+        : receipt
       setDisplayReceipt(updatedReceipt)
     } else if (initialReceipt && !receipt) {
-      // Use initialReceipt as fallback if receipt from hook is not yet available
-      const updatedInitialReceipt = {
-        ...initialReceipt,
-        people: [
-          currentPerson,
-          ...initialReceipt.people.filter((p: Person) => p.id !== currentPerson.id),
-        ],
-      }
+      const updatedInitialReceipt = currentPerson
+        ? {
+            ...initialReceipt,
+            people: [
+              currentPerson,
+              ...initialReceipt.people.filter((p: Person) => p.id !== currentPerson.id),
+            ],
+          }
+        : initialReceipt
       setDisplayReceipt(updatedInitialReceipt)
     }
   }, [receipt, currentPerson, initialReceipt])
 
-  // Show nav after animation completes
-  useEffect(() => {
-    if (isReceiptMounted) {
-      const timer = setTimeout(() => {
-        // No need to set showNav as we're using isReceiptMounted directly
-      }, 500)
-      return () => clearTimeout(timer)
-    }
-  }, [isReceiptMounted])
-
   const handleAddPerson = async (person: Person): Promise<boolean> => {
+    if (!currentPerson) {
+      onRequestIdentity?.()
+      return false
+    }
     try {
       setLoading(true)
       return await addPerson(person)
@@ -111,7 +109,10 @@ export default function SplitReceiptContainer({
   }
 
   const handleRemovePerson = async (personId: string) => {
-    // Don't allow removing the current person
+    if (!currentPerson) {
+      onRequestIdentity?.()
+      return
+    }
     if (personId === currentPerson.id) {
       toast({
         title: "Cannot remove yourself",
@@ -156,6 +157,10 @@ export default function SplitReceiptContainer({
   }
 
   const handleQuickClaim = async (itemId: string) => {
+    if (!currentPerson) {
+      onRequestIdentity?.()
+      return
+    }
     if (!displayReceipt) return
 
     const item = displayReceipt.lineItems.find((i) => i.id === itemId)
@@ -209,6 +214,10 @@ export default function SplitReceiptContainer({
   }
 
   const handleItemSelect = (itemId: string) => {
+    if (!currentPerson) {
+      onRequestIdentity?.()
+      return
+    }
     setSelectedItemId(itemId)
     setViewMode("split")
   }
@@ -228,9 +237,7 @@ export default function SplitReceiptContainer({
   }, [screenId, scrollPosition])
 
   const handleViewChange = (newView: ViewMode) => {
-    // set previous view scroll position
     setScrollPosition((prev) => ({ ...prev, [screenId]: window.scrollY }))
-
     setViewMode(newView)
   }
 
@@ -243,7 +250,6 @@ export default function SplitReceiptContainer({
     )
   }
 
-  // If we have an error and no receipt, show error
   if (error && !displayReceipt) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen py-12">
@@ -255,7 +261,6 @@ export default function SplitReceiptContainer({
     )
   }
 
-  // If we don't have a displayReceipt yet, show loading
   if (!displayReceipt) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen py-12">
@@ -267,6 +272,20 @@ export default function SplitReceiptContainer({
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-start p-4 pt-4">
+      {/* Anonymous identity banner */}
+      {!currentPerson && !displayReceipt.isSettled && (
+        <button
+          onClick={() => onRequestIdentity?.()}
+          className="w-full max-w-lg mx-auto mb-3 bg-black text-white font-mono text-xs uppercase py-3 px-4 flex items-center justify-between hover:bg-gray-900 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <UserPlus className="h-3.5 w-3.5 shrink-0" />
+            Identify yourself to claim your share
+          </span>
+          <span className="text-gray-400">→</span>
+        </button>
+      )}
+
       <AnimatePresence>
         {isVisible && (
           <motion.div
@@ -297,7 +316,7 @@ export default function SplitReceiptContainer({
                     onRemovePerson={handleRemovePerson}
                     isOwner={false}
                     onViewSummary={() => handleViewChange("summary")}
-                    currentPersonId={currentPerson.id}
+                    currentPersonId={currentPerson?.id}
                     onQuickClaim={displayReceipt.isSettled ? undefined : handleQuickClaim}
                     onQuickView={(id) => setQuickViewItemId(id)}
                   />
@@ -317,7 +336,7 @@ export default function SplitReceiptContainer({
 
                 {viewMode === "summary" && (
                   <SummaryView
-                    highlightPersonId={currentPerson.id}
+                    highlightPersonId={currentPerson?.id}
                     receipt={displayReceipt}
                     shareUrl={`${window.location.origin}/split/${receiptId}?key=${shareKey}`}
                   />
@@ -387,7 +406,7 @@ export default function SplitReceiptContainer({
                           const personIndex = displayReceipt.people.findIndex(
                             (p) => p.id === portion.personId
                           )
-                          const isMe = portion.personId === currentPerson.id
+                          const isMe = currentPerson != null && portion.personId === currentPerson.id
                           return person ? (
                             <div
                               key={portion.personId}
@@ -433,7 +452,7 @@ export default function SplitReceiptContainer({
                       className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-gray-300 text-xs uppercase hover:bg-gray-50 transition-colors"
                     >
                       <Scissors className="h-3 w-3" />
-                      Edit split
+                      {currentPerson ? "Edit split" : "Claim this item"}
                     </button>
                   </div>
                 </>

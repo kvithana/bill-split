@@ -15,6 +15,8 @@ export function SplitReceiptPage() {
   const { id: receiptId } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
   const shareKey = searchParams.get("key")
+  const viewParam = searchParams.get("view")
+  const initialView = viewParam === "summary" ? "summary" : "display"
 
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -90,34 +92,29 @@ export function SplitReceiptPage() {
     fetchReceipt()
   }, [receiptId, shareKey])
 
-  // Auto-open name dialog or restore saved identity once receipt is loaded
+  // Restore saved identity once receipt is loaded (don't block if none saved)
   useEffect(() => {
     if (!receipt || selectedPerson) return
 
     const saved = localStorage.getItem(`split-identity-${receiptId}`)
-    if (saved) {
-      try {
-        const savedPerson = JSON.parse(saved) as Person
-        const stillExists = receipt.people.find((p) => p.id === savedPerson.id)
-        if (stillExists) {
-          setSelectedPerson(savedPerson)
-          return
-        }
-      } catch {
-        // Ignore parse errors, fall through to open dialog
-      }
-    }
+    if (!saved) return
 
-    setIsNameDialogOpen(true)
+    try {
+      const savedPerson = JSON.parse(saved) as Person
+      const stillExists = receipt.people.find((p) => p.id === savedPerson.id)
+      if (stillExists) {
+        setSelectedPerson(savedPerson)
+      }
+    } catch {
+      // Ignore parse errors — user will be prompted via the banner
+    }
   }, [receipt, receiptId, selectedPerson])
 
-  // Handler for when user selects or creates a name
   const handleNameSelection = async (selectedName: string, isExistingPerson: boolean) => {
     if (!receipt) return
 
     try {
       if (isExistingPerson) {
-        // Find the existing person in the receipt
         const person = receipt.people.find((p) => p.name === selectedName)
         if (person) {
           localStorage.setItem(`split-identity-${receiptId}`, JSON.stringify(person))
@@ -128,7 +125,6 @@ export function SplitReceiptPage() {
         }
       }
 
-      // Create new person if not using existing one
       if (personNameCollides(receipt.people, selectedName)) {
         toast({
           title: "Name already on this bill",
@@ -143,7 +139,6 @@ export function SplitReceiptPage() {
         name: selectedName.trim(),
       }
 
-      // Add the person to the receipt using standardized format
       const response = await fetch(`/api/receipts/${receiptId}/people`, {
         method: "POST",
         headers: {
@@ -242,64 +237,23 @@ export function SplitReceiptPage() {
     )
   }
 
-  // If name not selected yet, show only the dialog (which is controlled by isNameDialogOpen)
-  if (!selectedPerson) {
-    return (
-      <>
-        <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white rounded-sm shadow-md p-6 font-mono">
-            <div className="text-center border-b border-dashed border-gray-300 pb-4">
-              <div className="uppercase text-lg font-bold">SPLIT // IT</div>
-              <div className="text-xs text-gray-500">{new Date().toLocaleDateString()}</div>
-            </div>
-
-            <div className="py-6 text-center">
-              <h2 className="text-sm uppercase font-bold mb-2">
-                {receipt.metadata.businessName || "Receipt"}
-              </h2>
-              <p className="text-xs text-gray-600 mb-6">
-                {receipt.billName ||
-                  `Bill from ${new Date(receipt.createdAt).toLocaleDateString()}`}
-              </p>
-
-              <p className="text-sm mb-2">You&apos;ve been invited to split this bill</p>
-              <p className="text-xs text-gray-500 mb-6">
-                Claim what you ordered and see your share
-              </p>
-
-              <button
-                onClick={() => setIsNameDialogOpen(true)}
-                className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors border border-dashed border-gray-300"
-              >
-                <div className="uppercase text-sm">Who&apos;s this for?</div>
-                <div className="text-xs mt-1 text-gray-300">tap to get started</div>
-              </button>
-            </div>
-
-            <div className="text-center border-t border-dashed border-gray-300 pt-4 text-[0.6rem] text-gray-400">
-              <p>*** THANK YOU FOR USING SPLIT // IT ***</p>
-              <p className="mt-1">RECEIPT ID: {receiptId.substring(0, 8)}</p>
-            </div>
-          </div>
-        </div>
-
-        <NameSelectionDialog
-          isOpen={isNameDialogOpen}
-          onClose={() => setIsNameDialogOpen(false)}
-          onSelect={handleNameSelection}
-          existingPeople={receipt.people}
-          prefillNewName={prefillShareName}
-        />
-      </>
-    )
-  }
-
   return (
-    <SplitReceiptContainer
-      receipt={receipt}
-      currentPerson={selectedPerson}
-      receiptId={receiptId}
-      shareKey={shareKey!}
-    />
+    <>
+      <SplitReceiptContainer
+        receipt={receipt}
+        currentPerson={selectedPerson}
+        onRequestIdentity={() => setIsNameDialogOpen(true)}
+        receiptId={receiptId}
+        shareKey={shareKey!}
+        initialView={initialView}
+      />
+      <NameSelectionDialog
+        isOpen={isNameDialogOpen}
+        onClose={() => setIsNameDialogOpen(false)}
+        onSelect={handleNameSelection}
+        existingPeople={receipt.people}
+        prefillNewName={prefillShareName}
+      />
+    </>
   )
 }
