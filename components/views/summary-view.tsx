@@ -171,6 +171,23 @@ export default function SummaryView({
       )}
 
       <CardContent className="p-2 space-y-4">
+        {highlightPersonId && (
+          <div className="border-b border-dashed border-gray-300 pb-4 text-center space-y-1">
+            <div className="text-xs uppercase text-gray-500">Your share</div>
+            <div className="text-3xl font-bold">
+              {formatCurrency(calculatePersonTotal(receipt, highlightPersonId))}
+            </div>
+            {!receipt.isSettled && (
+              <div className="text-xs text-gray-400">
+                Tap your name below to see the breakdown.
+                {calculateUnallocatedAmount(receipt) > 0
+                  ? " Some items still need to be claimed — go back to the split view."
+                  : ""}
+              </div>
+            )}
+          </div>
+        )}
+
         {receipt.people.map((person: Person, index) => (
           <div key={person.id} className={`border-b border-dashed border-gray-300 pb-2`}>
             <Button
