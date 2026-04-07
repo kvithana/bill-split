@@ -33,28 +33,45 @@ export default function FloatingNav({
   const [isInputFocused, setIsInputFocused] = useState(false)
   const isStandalone = useStandalone()
 
-  const [tutorialStep, setTutorialStep] = useState(hideEdit ? 1 : 0)
+  const [tutorialStep, setTutorialStep] = useState(0)
   const [isTutorialOpen, setIsTutorialOpen] = useState(() => {
-    return localStorage.getItem("tutorial-completed") !== "true"
+    const key = hideEdit ? "tutorial-shared-completed" : "tutorial-completed"
+    return localStorage.getItem(key) !== "true"
   })
 
-  const tutorialContent = [
-    {
-      title: "Split View",
-      content:
-        "This is where you assign splits to each person. Tap on an item to split it among the group.",
-    },
-    {
-      title: "Edit View",
-      content:
-        "Add, update, or delete items in the edit view. You can also add a label to this receipt.",
-    },
-    {
-      title: "Summary View",
-      content:
-        "Once all items have been split, you can view the breakdown of who owes what in the summary.",
-    },
-  ]
+  const tutorialContent = hideEdit
+    ? [
+        {
+          title: "Claim Your Items",
+          content:
+            "Tap any item to claim what you ordered. You can also tap the scissors icon to adjust how it's split.",
+        },
+        {
+          title: "Your Summary",
+          content:
+            "Check your total here. Your share is shown at the top — tap your name to see the full breakdown.",
+        },
+      ]
+    : [
+        {
+          title: "Split View",
+          content:
+            "This is where you assign splits to each person. Tap on an item to split it among the group.",
+        },
+        {
+          title: "Edit View",
+          content:
+            "Add, update, or delete items in the edit view. You can also add a label to this receipt.",
+        },
+        {
+          title: "Summary View",
+          content:
+            "Once all items have been split, you can view the breakdown of who owes what in the summary.",
+        },
+      ]
+
+  // Summary button is at step 1 for shared users (no Edit step), step 2 for owners
+  const summaryTutorialStep = hideEdit ? 1 : 2
 
   const handleNext = () => {
     if (tutorialStep < tutorialContent.length - 1) {
@@ -73,7 +90,8 @@ export default function FloatingNav({
   const handleClose = () => {
     setIsTutorialOpen(false)
     setTutorialStep(0)
-    localStorage.setItem("tutorial-completed", "true")
+    const key = hideEdit ? "tutorial-shared-completed" : "tutorial-completed"
+    localStorage.setItem(key, "true")
   }
 
   useEffect(() => {
@@ -175,7 +193,7 @@ export default function FloatingNav({
                 <Button
                   variant={currentView === "edit" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => !isTutorialOpen && onViewChange("edit")}
+                  onClick={() => onViewChange("edit")}
                   className={cn("rounded-full", {
                     "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === 1,
                   })}
@@ -199,7 +217,7 @@ export default function FloatingNav({
               <Button
                 variant={currentView === "display" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => !isTutorialOpen && onViewChange("display")}
+                onClick={() => onViewChange("display")}
                 className={cn("rounded-full", {
                   "animate-pulse": isTutorialOpen && tutorialStep === 0,
                 })}
@@ -209,9 +227,9 @@ export default function FloatingNav({
               </Button>
             </TutorialTooltip>
             <TutorialTooltip
-              content={tutorialContent[2].content}
-              title={tutorialContent[2].title}
-              open={isTutorialOpen && tutorialStep === 2}
+              content={tutorialContent[summaryTutorialStep].content}
+              title={tutorialContent[summaryTutorialStep].title}
+              open={isTutorialOpen && tutorialStep === summaryTutorialStep}
               onOpenChange={() => {}}
               step={tutorialStep + 1}
               totalSteps={tutorialContent.length}
@@ -224,7 +242,7 @@ export default function FloatingNav({
                 size="sm"
                 onClick={() => onViewChange("summary")}
                 className={cn("rounded-full", {
-                  "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === 2,
+                  "animate-pulse bg-gray-200": isTutorialOpen && tutorialStep === summaryTutorialStep,
                 })}
               >
                 <FileText className="h-4 w-4 md:mr-1" />

@@ -90,7 +90,10 @@ export default function NameSelectionDialog({
           <DialogTitle className="sr-only">Select or add your name</DialogTitle>
           <div className="uppercase text-lg font-bold">SPLIT // IT</div>
           <div className="text-xs text-gray-500">{new Date().toLocaleDateString()}</div>
-          <div className="mt-4 text-sm">Who&apos;s splitting this bill?</div>
+          <div className="mt-4 text-sm font-bold">Who are you?</div>
+          <div className="text-xs text-gray-500 mt-1">
+            Pick your name from the list, or add yourself if you&apos;re not on it yet.
+          </div>
         </DialogHeader>
 
         {isAddingNew ? (
