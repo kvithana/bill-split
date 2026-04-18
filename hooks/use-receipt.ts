@@ -24,6 +24,7 @@ export type UseReceiptResult = {
   // Mutations
   updateLineItems: (lineItems: ReceiptLineItem[]) => Promise<void>
   updateAdjustments: (adjustments: ReceiptAdjustment[]) => Promise<void>
+  saveChanges: (lineItems: ReceiptLineItem[], adjustments: ReceiptAdjustment[]) => Promise<void>
   addPerson: (person: Person) => Promise<boolean>
   removePerson: (personId: string) => Promise<void>
   moveToCloud: () => Promise<{ receiptId: string; shareKey: string } | null>
@@ -300,6 +301,101 @@ export function useReceipt(
     [receipt, source, receiptId, storeActions, handleApiResponse]
   )
 
+  // Saves line items and adjustments in sequence, using the hash returned by the
+  // line-items response for the adjustments call. This avoids the stale-hash
+  // 409 conflict that occurs when the two calls are made independently.
+  const saveChanges = useCallback(
+    async (lineItems: ReceiptLineItem[], adjustments: ReceiptAdjustment[]) => {
+      if (!receipt) return
+
+      if (source === "local") {
+        storeActions.updateLineItems(receiptId, lineItems)
+        storeActions.updateAdjustments(receiptId, adjustments)
+        setReceipt((prev) => (prev ? { ...prev, lineItems, adjustments } : null))
+        return
+      }
+
+      setIsLoading(true)
+      try {
+        const lineItemsResponse = await fetch(`/api/receipts/${receiptId}/line-items`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ lineItems, hash: receipt.hash }),
+        })
+
+        if (!lineItemsResponse.ok) {
+          throw new Error(`Failed to update line items: ${lineItemsResponse.statusText}`)
+        }
+
+        const lineItemsData = await lineItemsResponse.json()
+
+        if (lineItemsData.syncRequired) {
+          if (!isRealtimeConnectedRef.current) {
+            toast({
+              title: "Receipt out of sync",
+              description: "Someone else has updated this receipt. Refreshing your view.",
+              variant: "destructive",
+              duration: 5000,
+            })
+          }
+          await fetchReceipt(false)
+          return
+        }
+
+        if (!lineItemsData.success) {
+          throw new Error(lineItemsData.error || "Failed to update line items")
+        }
+
+        const updatedAfterLineItems: Receipt = lineItemsData.receipt
+        storeActions.updateReceipt(receiptId, updatedAfterLineItems)
+        setReceipt(updatedAfterLineItems)
+
+        // Use the hash from the line-items response so the server sees the correct version
+        const adjustmentsResponse = await fetch(`/api/receipts/${receiptId}/adjustments`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ adjustments, hash: updatedAfterLineItems.hash }),
+        })
+
+        if (!adjustmentsResponse.ok) {
+          throw new Error(`Failed to update adjustments: ${adjustmentsResponse.statusText}`)
+        }
+
+        const adjustmentsData = await adjustmentsResponse.json()
+
+        if (adjustmentsData.syncRequired) {
+          if (!isRealtimeConnectedRef.current) {
+            toast({
+              title: "Receipt out of sync",
+              description: "Someone else has updated this receipt. Refreshing your view.",
+              variant: "destructive",
+              duration: 5000,
+            })
+          }
+          await fetchReceipt(false)
+          return
+        }
+
+        if (!adjustmentsData.success) {
+          throw new Error(adjustmentsData.error || "Failed to update adjustments")
+        }
+
+        await setReceiptFromCloud(adjustmentsData.receipt)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error")
+        toast({
+          title: "Failed to save changes",
+          description: err instanceof Error ? err.message : "Unknown error occurred",
+          variant: "destructive",
+        })
+        throw err
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [receipt, source, receiptId, storeActions, fetchReceipt, headers, setReceiptFromCloud]
+  )
+
   const addPerson = useCallback(
     async (person: Person): Promise<boolean> => {
       if (!receipt) return false
@@ -494,6 +590,7 @@ export function useReceipt(
       isRealtimeConnected,
       updateLineItems,
       updateAdjustments,
+      saveChanges,
       addPerson,
       removePerson,
       moveToCloud,
@@ -507,6 +604,7 @@ export function useReceipt(
       isRealtimeConnected,
       updateLineItems,
       updateAdjustments,
+      saveChanges,
       addPerson,
       removePerson,
       moveToCloud,
