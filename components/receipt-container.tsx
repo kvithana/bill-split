@@ -9,6 +9,14 @@ import { Person, Receipt, ReceiptAdjustment, ReceiptLineItem } from "@/lib/types
 import FloatingNav from "./floating-nav"
 import { toast } from "@/hooks/use-toast"
 import { AlertCircle, ArrowLeft, Loader2, CheckCircle } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { Button } from "./ui/button"
 import { useRouter } from "next/navigation"
 import { getDeviceId } from "@/lib/device-id"
@@ -28,6 +36,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     error,
     updateLineItems: updateLineItemsAction,
     updateAdjustments: updateAdjustmentsAction,
+    saveChanges: saveChangesAction,
     addPerson: addPersonAction,
     removePerson: removePersonAction,
     moveToCloud,
@@ -39,6 +48,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [scrollPosition, setScrollPosition] = useState<{ [key: string]: number }>({})
   const [hasEditChanges, setHasEditChanges] = useState(false)
+  const [pendingNav, setPendingNav] = useState<ViewMode | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isSavingSplit, setIsSavingSplit] = useState(false)
   const [isSettling, setIsSettling] = useState(false)
@@ -84,10 +94,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     const navigateAfter = options?.navigateAfter !== false
     try {
       setIsSaving(true)
-      await updateLineItemsAction(updatedReceipt.lineItems)
-      await updateAdjustmentsAction(updatedReceipt.adjustments)
-
-      await refresh()
+      await saveChangesAction(updatedReceipt.lineItems, updatedReceipt.adjustments)
 
       if (navigateAfter) {
         handleViewChange("display", { fromSuccessfulSave: true })
@@ -221,30 +228,45 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     )
   }
 
-  const handleViewChange = async (
+  const handleViewChange = (
     newView: ViewMode,
     options?: { fromSuccessfulSave?: boolean }
   ) => {
-    // Skip validation if receipt is not loaded yet
     if (!receipt) return
 
+    // When leaving edit with unsaved changes, pause and prompt instead of silently discarding
     if (
       viewMode === "edit" &&
-      newView === "display" &&
+      newView !== "edit" &&
+      hasEditChanges &&
       !options?.fromSuccessfulSave
     ) {
-      const ok = (await editItemsViewRef.current?.saveIfNeeded()) ?? true
-      if (!ok) return
+      setPendingNav(newView)
+      return
     }
 
     if (viewMode === "edit") {
       setHasEditChanges(false)
     }
 
-    // set previous view scroll position
     setScrollPosition((prev) => ({ ...prev, [screenId]: window.scrollY }))
-
     setViewMode(newView)
+  }
+
+  const confirmNavigation = async (action: "save" | "discard") => {
+    const targetView = pendingNav
+    if (!targetView) return
+    setPendingNav(null)
+
+    if (action === "save") {
+      const ok = (await editItemsViewRef.current?.saveIfNeeded()) ?? false
+      if (!ok) return // Validation failed — stay in edit view so user can fix errors
+    } else {
+      setHasEditChanges(false)
+    }
+
+    setScrollPosition((prev) => ({ ...prev, [screenId]: window.scrollY }))
+    setViewMode(targetView)
   }
 
   return (
@@ -343,6 +365,29 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
           loading={loading}
         />
       )}
+
+      <Dialog open={!!pendingNav} onOpenChange={(open) => !open && setPendingNav(null)}>
+        <DialogContent className="font-mono max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Unsaved changes</DialogTitle>
+            <DialogDescription>
+              You have unsaved edits. Save before leaving, or discard them.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setPendingNav(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => confirmNavigation("discard")}>
+              Discard
+            </Button>
+            <Button onClick={() => confirmNavigation("save")} disabled={isSaving}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
