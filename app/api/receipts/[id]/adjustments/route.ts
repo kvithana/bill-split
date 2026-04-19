@@ -16,8 +16,9 @@ const UpdateAdjustmentsSchema = z.object({
  * PUT /api/receipts/[id]/adjustments - Update adjustments in a receipt
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  let receiptId = "unknown"
   try {
-    const { id: receiptId } = await params
+    receiptId = (await params).id
     const body = await request.json()
 
     // Validate the request body
@@ -56,6 +57,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
 
       if (!updatedReceipt) {
+        console.warn(`[receipts/${receiptId}/adjustments] PUT 404 — receipt not found`)
         return NextResponse.json(
           { success: false, error: "Receipt not found or update failed" },
           { status: 404 }
@@ -69,6 +71,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     } catch (error) {
       // Handle hash mismatch error specifically
       if (error instanceof Error && error.message === "Receipt has been modified by another user") {
+        console.warn(
+          `[receipts/${receiptId}/adjustments] PUT 409 hash conflict — clientHash=${data.hash ?? "none"}`
+        )
         return NextResponse.json(
           {
             success: false,
@@ -81,7 +86,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       throw error // Re-throw for generic error handling
     }
   } catch (error) {
-    console.error("Error updating adjustments:", error)
+    console.error(`[receipts/${receiptId}/adjustments] PUT 500:`, error)
     const message = error instanceof Error ? error.message : "Failed to update adjustments"
     return NextResponse.json({ success: false, error: message }, { status: 500 })
   }
