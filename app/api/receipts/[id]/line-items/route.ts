@@ -15,8 +15,9 @@ const UpdateLineItemsSchema = z.object({
  * PUT /api/receipts/[id]/line-items - Update line items in a receipt
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  let receiptId = "unknown"
   try {
-    const { id: receiptId } = await params
+    receiptId = (await params).id
     const body = await request.json()
 
     // Validate the request body
