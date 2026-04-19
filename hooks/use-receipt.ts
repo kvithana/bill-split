@@ -14,6 +14,20 @@ import { fromRow } from "@/lib/receipt/row-mapper"
 // Type for receipt source - determines where the receipt is stored
 export type ReceiptSource = "local" | "cloud"
 
+/**
+ * Thrown by saveChanges when the server rejects the update because the receipt
+ * was concurrently modified. The hook already shows a "out of sync" toast and
+ * refreshes the receipt — callers should NOT show an additional error toast.
+ */
+export class SyncConflictError extends Error {
+  constructor() {
+    super(
+      "Receipt was updated by someone else. Your view has been refreshed — please re-save your changes."
+    )
+    this.name = "SyncConflictError"
+  }
+}
+
 // Type for the return value of the useReceipt hook
 export type UseReceiptResult = {
   receipt: Receipt | null
@@ -197,28 +211,38 @@ export function useReceipt(
 
   const handleApiResponse = useCallback(
     async (response: Response, operationName: string) => {
-      const data = await response.json()
+      // Always parse the body first — statusText is empty in HTTP/2 and the body
+      // carries the real error message and the syncRequired flag.
+      const data = (await response.json().catch(() => ({}))) as {
+        success?: boolean
+        receipt?: Receipt
+        syncRequired?: boolean
+        error?: string
+      }
 
       if (data.success && data.receipt) {
         await setReceiptFromCloud(data.receipt)
         return true
-      } else {
-        if (data.syncRequired) {
-          // Only show toast if not getting live updates via Realtime
-          if (!isRealtimeConnectedRef.current) {
-            toast({
-              title: "Receipt out of sync",
-              description: "Someone else has updated this receipt. Refreshing your view.",
-              variant: "destructive",
-              duration: 5000,
-            })
-          }
-          await fetchReceipt(false)
-          return false
-        }
-
-        throw new Error(data.error || `Unknown error during ${operationName}`)
       }
+
+      if (data.syncRequired) {
+        // Only show toast if not getting live updates via Realtime
+        if (!isRealtimeConnectedRef.current) {
+          toast({
+            title: "Receipt out of sync",
+            description: "Someone else has updated this receipt. Refreshing your view.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        }
+        await fetchReceipt(false)
+        return false
+      }
+
+      throw new Error(
+        data.error ||
+          (response.status ? `Server error (${response.status})` : `Unknown error during ${operationName}`)
+      )
     },
     [fetchReceipt, setReceiptFromCloud]
   )
@@ -239,10 +263,8 @@ export function useReceipt(
             body: JSON.stringify({ lineItems, hash: receipt.hash }),
           })
 
-          if (!response.ok) {
-            throw new Error(`Failed to update line items: ${response.statusText}`)
-          }
-
+          // Pass the full response to handleApiResponse so it can parse the body
+          // and properly detect syncRequired on 409 before throwing.
           const success = await handleApiResponse(response, "update line items")
           if (success) {
             toast({ title: "Changes saved", description: "Line items updated successfully", duration: 1000 })
@@ -250,11 +272,7 @@ export function useReceipt(
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
-        toast({
-          title: "Failed to save changes",
-          description: err instanceof Error ? err.message : "Unknown error occurred",
-          variant: "destructive",
-        })
+        throw err // Let the caller show the appropriate error UI
       } finally {
         setIsLoading(false)
       }
@@ -278,10 +296,6 @@ export function useReceipt(
             body: JSON.stringify({ adjustments, hash: receipt.hash }),
           })
 
-          if (!response.ok) {
-            throw new Error(`Failed to update adjustments: ${response.statusText}`)
-          }
-
           const success = await handleApiResponse(response, "update adjustments")
           if (success) {
             toast({ title: "Changes saved", description: "Adjustments updated successfully", duration: 1000 })
@@ -289,11 +303,7 @@ export function useReceipt(
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
-        toast({
-          title: "Failed to save changes",
-          description: err instanceof Error ? err.message : "Unknown error occurred",
-          variant: "destructive",
-        })
+        throw err // Let the caller show the appropriate error UI
       } finally {
         setIsLoading(false)
       }
@@ -323,30 +333,35 @@ export function useReceipt(
           body: JSON.stringify({ lineItems, hash: receipt.hash }),
         })
 
-        if (!lineItemsResponse.ok) {
-          throw new Error(`Failed to update line items: ${lineItemsResponse.statusText}`)
+        // Parse the body before checking ok — statusText is empty in HTTP/2
+        // and the body carries the real error and the syncRequired flag.
+        const lineItemsData = (await lineItemsResponse.json().catch(() => ({}))) as {
+          success?: boolean
+          receipt?: Receipt
+          syncRequired?: boolean
+          error?: string
         }
 
-        const lineItemsData = await lineItemsResponse.json()
-
-        if (lineItemsData.syncRequired) {
-          if (!isRealtimeConnectedRef.current) {
-            toast({
-              title: "Receipt out of sync",
-              description: "Someone else has updated this receipt. Refreshing your view.",
-              variant: "destructive",
-              duration: 5000,
-            })
+        if (!lineItemsResponse.ok || !lineItemsData.success) {
+          if (lineItemsData.syncRequired) {
+            if (!isRealtimeConnectedRef.current) {
+              toast({
+                title: "Receipt out of sync",
+                description: "Someone else has updated this receipt. Refreshing your view.",
+                variant: "destructive",
+                duration: 5000,
+              })
+            }
+            await fetchReceipt(false)
+            throw new SyncConflictError()
           }
-          await fetchReceipt(false)
-          return
+          throw new Error(
+            lineItemsData.error ||
+              `Failed to update items (${lineItemsResponse.status})`
+          )
         }
 
-        if (!lineItemsData.success) {
-          throw new Error(lineItemsData.error || "Failed to update line items")
-        }
-
-        const updatedAfterLineItems: Receipt = lineItemsData.receipt
+        const updatedAfterLineItems = lineItemsData.receipt!
         storeActions.updateReceipt(receiptId, updatedAfterLineItems)
         setReceipt(updatedAfterLineItems)
 
@@ -357,38 +372,36 @@ export function useReceipt(
           body: JSON.stringify({ adjustments, hash: updatedAfterLineItems.hash }),
         })
 
-        if (!adjustmentsResponse.ok) {
-          throw new Error(`Failed to update adjustments: ${adjustmentsResponse.statusText}`)
+        const adjustmentsData = (await adjustmentsResponse.json().catch(() => ({}))) as {
+          success?: boolean
+          receipt?: Receipt
+          syncRequired?: boolean
+          error?: string
         }
 
-        const adjustmentsData = await adjustmentsResponse.json()
-
-        if (adjustmentsData.syncRequired) {
-          if (!isRealtimeConnectedRef.current) {
-            toast({
-              title: "Receipt out of sync",
-              description: "Someone else has updated this receipt. Refreshing your view.",
-              variant: "destructive",
-              duration: 5000,
-            })
+        if (!adjustmentsResponse.ok || !adjustmentsData.success) {
+          if (adjustmentsData.syncRequired) {
+            if (!isRealtimeConnectedRef.current) {
+              toast({
+                title: "Receipt out of sync",
+                description: "Someone else has updated this receipt. Refreshing your view.",
+                variant: "destructive",
+                duration: 5000,
+              })
+            }
+            await fetchReceipt(false)
+            throw new SyncConflictError()
           }
-          await fetchReceipt(false)
-          return
+          throw new Error(
+            adjustmentsData.error ||
+              `Failed to update adjustments (${adjustmentsResponse.status})`
+          )
         }
 
-        if (!adjustmentsData.success) {
-          throw new Error(adjustmentsData.error || "Failed to update adjustments")
-        }
-
-        await setReceiptFromCloud(adjustmentsData.receipt)
+        await setReceiptFromCloud(adjustmentsData.receipt!)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
-        toast({
-          title: "Failed to save changes",
-          description: err instanceof Error ? err.message : "Unknown error occurred",
-          variant: "destructive",
-        })
-        throw err
+        throw err // Caller decides whether to show a toast (SyncConflictError → no extra toast)
       } finally {
         setIsLoading(false)
       }

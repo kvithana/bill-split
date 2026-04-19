@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { ToastAction } from "@/components/ui/toast"
 import { Button } from "./ui/button"
 import { useRouter } from "next/navigation"
 import { getDeviceId } from "@/lib/device-id"
@@ -24,7 +25,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { EmptyState } from "./empty-state"
 import { cn } from "@/lib/utils"
 import { useStandalone } from "@/hooks/use-standalone"
-import { useReceipt } from "@/hooks/use-receipt"
+import { useReceipt, SyncConflictError } from "@/hooks/use-receipt"
 import { slideVariants, backButtonVariants } from "@/lib/animations"
 
 type ViewMode = "display" | "edit" | "split" | "summary"
@@ -87,6 +88,38 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     }
   }, [isVisible, router])
 
+  // Builds and shows a destructive toast with a "Copy" action so users can send
+  // error details to Kal. SyncConflictError is excluded — the hook already shows
+  // a specific "out of sync" toast for those.
+  const showErrorToast = (title: string, err: unknown) => {
+    if (err instanceof SyncConflictError) return
+    const message = err instanceof Error ? err.message : "An unknown error occurred"
+    const report = JSON.stringify(
+      {
+        receiptId: id,
+        timestamp: new Date().toISOString(),
+        error: message,
+        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+      },
+      null,
+      2
+    )
+    toast({
+      title,
+      description: message,
+      variant: "destructive",
+      duration: 8000,
+      action: (
+        <ToastAction
+          altText="Copy error details for support"
+          onClick={() => navigator.clipboard.writeText(report)}
+        >
+          Copy details
+        </ToastAction>
+      ),
+    })
+  }
+
   const handleSave = async (
     updatedReceipt: Receipt,
     options?: { navigateAfter?: boolean }
@@ -105,11 +138,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
         })
       }
     } catch (err) {
-      toast({
-        title: "Failed to save changes",
-        description: err instanceof Error ? err.message : "An unknown error occurred",
-        variant: "destructive",
-      })
+      showErrorToast("Failed to save changes", err)
       throw err
     } finally {
       setIsSaving(false)
@@ -159,11 +188,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
       await updateLineItemsAction(lineItems)
       handleViewChange("display")
     } catch (err) {
-      toast({
-        title: "Failed to update items",
-        description: err instanceof Error ? err.message : "An unknown error occurred",
-        variant: "destructive",
-      })
+      showErrorToast("Failed to update items", err)
     } finally {
       setLoading(false)
       setIsSavingSplit(false)
@@ -205,11 +230,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
       await updateAdjustmentsAction(adjustments)
       handleViewChange("display")
     } catch (err) {
-      toast({
-        title: "Failed to update adjustments",
-        description: err instanceof Error ? err.message : "An unknown error occurred",
-        variant: "destructive",
-      })
+      showErrorToast("Failed to update adjustments", err)
     } finally {
       setLoading(false)
       setIsSavingSplit(false)

@@ -55,6 +55,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
 
       if (!updatedReceipt) {
+        console.warn(`[receipts/${receiptId}/line-items] PUT 404 — receipt not found`)
         return NextResponse.json(
           { success: false, error: "Receipt not found or update failed" },
           { status: 404 }
@@ -68,6 +69,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     } catch (error) {
       // Handle hash mismatch error specifically
       if (error instanceof Error && error.message === "Receipt has been modified by another user") {
+        console.warn(
+          `[receipts/${receiptId}/line-items] PUT 409 hash conflict — clientHash=${data.hash ?? "none"}`
+        )
         return NextResponse.json(
           {
             success: false,
@@ -80,7 +84,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       throw error // Re-throw for generic error handling
     }
   } catch (error) {
-    console.error("Error updating line items:", error)
+    console.error(`[receipts/${receiptId}/line-items] PUT 500:`, error)
     const message = error instanceof Error ? error.message : "Failed to update line items"
     return NextResponse.json({ success: false, error: message }, { status: 500 })
   }
