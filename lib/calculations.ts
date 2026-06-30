@@ -18,9 +18,10 @@ export const calculatePersonLineItemsTotal = (receipt: Receipt, personId: string
     const personPortion = getPersonPortion(personId)(item.splitting?.portions || [])
     if (!personPortion) return total
 
-    const totalPortions = item.splitting?.portions.reduce((sum, p) => sum + p.portions, 0) || 0
+    // Always divide by item.quantity — semantically correct (person pays portions/quantity of the price)
+    // and handles both old data (no UNALLOCATED_ID) and stale UNALLOCATED_ID entries
     return (
-      total + calculatePortionAmount(item.totalPriceInCents, personPortion.portions, totalPortions)
+      total + calculatePortionAmount(item.totalPriceInCents, personPortion.portions, item.quantity)
     )
   }, 0)
 
