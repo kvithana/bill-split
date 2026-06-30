@@ -168,7 +168,7 @@ export default function NameSelectionDialog({
               <div className="space-y-3">
                 <div className="text-xs uppercase text-gray-500">Are you one of these?</div>
                 <div className="space-y-1 border-b border-dashed border-gray-300 pb-4 max-h-[45dvh] overflow-y-auto">
-                  {existingPeople.map((person) => (
+                  {[...existingPeople].sort((a, b) => a.name.localeCompare(b.name)).map((person) => (
                     <button
                       key={person.id}
                       onClick={() => handleSelectExisting(person)}
