@@ -126,7 +126,7 @@ describe("saveChanges — stale hash fix", () => {
     ])
 
     await act(async () => {
-      await result.current.saveChanges(updatedLineItems, [])
+      await result.current.saveChanges({ ...baseCloudReceipt, lineItems: updatedLineItems })
     })
 
     const allCalls = vi.mocked(global.fetch).mock.calls
@@ -148,7 +148,7 @@ describe("saveChanges — stale hash fix", () => {
     ])
 
     await act(async () => {
-      await result.current.saveChanges(updatedLineItems, [])
+      await result.current.saveChanges({ ...baseCloudReceipt, lineItems: updatedLineItems })
     })
 
     const allCalls = vi.mocked(global.fetch).mock.calls
@@ -171,7 +171,7 @@ describe("saveChanges — 409 sync conflict handling", () => {
     let caughtError: unknown
     await act(async () => {
       try {
-        await result.current.saveChanges(updatedLineItems, [])
+        await result.current.saveChanges({ ...baseCloudReceipt, lineItems: updatedLineItems })
       } catch (e) {
         caughtError = e
       }
@@ -191,7 +191,7 @@ describe("saveChanges — 409 sync conflict handling", () => {
     let caughtError: unknown
     await act(async () => {
       try {
-        await result.current.saveChanges(updatedLineItems, [])
+        await result.current.saveChanges({ ...baseCloudReceipt, lineItems: updatedLineItems })
       } catch (e) {
         caughtError = e
       }
@@ -208,7 +208,7 @@ describe("saveChanges — 409 sync conflict handling", () => {
     ])
 
     await act(async () => {
-      try { await result.current.saveChanges(updatedLineItems, []) } catch { /* expected */ }
+      try { await result.current.saveChanges({ ...baseCloudReceipt, lineItems: updatedLineItems }) } catch { /* expected */ }
     })
 
     expect(mockToast).toHaveBeenCalledOnce()
@@ -226,7 +226,7 @@ describe("saveChanges — 409 sync conflict handling", () => {
     ])
 
     await act(async () => {
-      try { await result.current.saveChanges(updatedLineItems, []) } catch { /* expected */ }
+      try { await result.current.saveChanges({ ...baseCloudReceipt, lineItems: updatedLineItems }) } catch { /* expected */ }
     })
 
     const allCalls = vi.mocked(global.fetch).mock.calls
@@ -254,7 +254,7 @@ describe("saveChanges — error message quality (empty statusText fix)", () => {
     let caughtError: unknown
     await act(async () => {
       try {
-        await result.current.saveChanges(updatedLineItems, [])
+        await result.current.saveChanges({ ...baseCloudReceipt, lineItems: updatedLineItems })
       } catch (e) {
         caughtError = e
       }
@@ -279,7 +279,7 @@ describe("saveChanges — error message quality (empty statusText fix)", () => {
     let caughtError: unknown
     await act(async () => {
       try {
-        await result.current.saveChanges(updatedLineItems, [])
+        await result.current.saveChanges({ ...baseCloudReceipt, lineItems: updatedLineItems })
       } catch (e) {
         caughtError = e
       }

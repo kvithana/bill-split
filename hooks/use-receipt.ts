@@ -7,7 +7,6 @@ import { getDeviceId } from "@/lib/device-id"
 import { generateId } from "@/lib/id"
 import { toast } from "@/hooks/use-toast"
 import { personNameCollides } from "@/lib/people"
-import { computeReceiptHash } from "@/lib/receipt/hash"
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client"
 import { fromRow } from "@/lib/receipt/row-mapper"
 
@@ -38,7 +37,7 @@ export type UseReceiptResult = {
   // Mutations
   updateLineItems: (lineItems: ReceiptLineItem[]) => Promise<void>
   updateAdjustments: (adjustments: ReceiptAdjustment[]) => Promise<void>
-  saveChanges: (lineItems: ReceiptLineItem[], adjustments: ReceiptAdjustment[]) => Promise<void>
+  saveChanges: (updatedReceipt: Receipt) => Promise<void>
   addPerson: (person: Person) => Promise<boolean>
   removePerson: (personId: string) => Promise<void>
   moveToCloud: () => Promise<{ receiptId: string; shareKey: string } | null>
@@ -122,15 +121,8 @@ export function useReceipt(
 
         const data = await response.json()
         if (data.success && data.receipt) {
-          const [newHash, currentHash] = await Promise.all([
-            computeReceiptHash(data.receipt),
-            receipt ? computeReceiptHash(receipt) : Promise.resolve(null),
-          ])
-
-          if (newHash !== currentHash) {
-            storeActions.updateReceipt(receiptId, data.receipt)
-            setReceipt(data.receipt)
-          }
+          storeActions.updateReceipt(receiptId, data.receipt)
+          setReceipt(data.receipt)
         } else {
           throw new Error(data.error || "Unknown error")
         }
@@ -172,17 +164,10 @@ export function useReceipt(
           table: "receipts",
           filter: `id=eq.${receiptId}`,
         },
-        async (payload) => {
-           
+        (payload) => {
           const incoming = fromRow(payload.new as any)
-          const [incomingHash, currentHash] = await Promise.all([
-            computeReceiptHash(incoming),
-            receipt ? computeReceiptHash(receipt) : Promise.resolve(null),
-          ])
-          if (incomingHash !== currentHash) {
-            storeActions.updateReceipt(receiptId, incoming)
-            setReceipt(incoming)
-          }
+          storeActions.updateReceipt(receiptId, incoming)
+          setReceipt(incoming)
         }
       )
       .subscribe((status) => {
@@ -197,16 +182,10 @@ export function useReceipt(
 
   const setReceiptFromCloud = useCallback(
     async (incoming: Receipt) => {
-      const [newHash, currentHash] = await Promise.all([
-        computeReceiptHash(incoming),
-        receipt ? computeReceiptHash(receipt) : Promise.resolve(null),
-      ])
-      if (newHash !== currentHash) {
-        storeActions.updateReceipt(receiptId, incoming)
-        setReceipt(incoming)
-      }
+      storeActions.updateReceipt(receiptId, incoming)
+      setReceipt(incoming)
     },
-    [receiptId, receipt, storeActions]
+    [receiptId, storeActions]
   )
 
   const handleApiResponse = useCallback(
@@ -311,17 +290,17 @@ export function useReceipt(
     [receipt, source, receiptId, storeActions, handleApiResponse]
   )
 
-  // Saves line items and adjustments in sequence, using the hash returned by the
-  // line-items response for the adjustments call. This avoids the stale-hash
-  // 409 conflict that occurs when the two calls are made independently.
+  // Saves all edited fields in sequence. Line items and adjustments use hash-based
+  // concurrency control; billName/metadata use the generic endpoint (no hash needed).
+  // The hash from the line-items response is forwarded to the adjustments call to
+  // avoid a stale-hash 409 conflict when both are updated together.
   const saveChanges = useCallback(
-    async (lineItems: ReceiptLineItem[], adjustments: ReceiptAdjustment[]) => {
+    async (updatedReceipt: Receipt) => {
       if (!receipt) return
 
       if (source === "local") {
-        storeActions.updateLineItems(receiptId, lineItems)
-        storeActions.updateAdjustments(receiptId, adjustments)
-        setReceipt((prev) => (prev ? { ...prev, lineItems, adjustments } : null))
+        storeActions.updateReceipt(receiptId, updatedReceipt)
+        setReceipt(updatedReceipt)
         return
       }
 
@@ -330,7 +309,7 @@ export function useReceipt(
         const lineItemsResponse = await fetch(`/api/receipts/${receiptId}/line-items`, {
           method: "PUT",
           headers,
-          body: JSON.stringify({ lineItems, hash: receipt.hash }),
+          body: JSON.stringify({ lineItems: updatedReceipt.lineItems, hash: receipt.hash }),
         })
 
         // Parse the body before checking ok — statusText is empty in HTTP/2
@@ -369,7 +348,7 @@ export function useReceipt(
         const adjustmentsResponse = await fetch(`/api/receipts/${receiptId}/adjustments`, {
           method: "PUT",
           headers,
-          body: JSON.stringify({ adjustments, hash: updatedAfterLineItems.hash }),
+          body: JSON.stringify({ adjustments: updatedReceipt.adjustments, hash: updatedAfterLineItems.hash }),
         })
 
         const adjustmentsData = (await adjustmentsResponse.json().catch(() => ({}))) as {
@@ -398,9 +377,46 @@ export function useReceipt(
           )
         }
 
-        await setReceiptFromCloud(adjustmentsData.receipt!)
+        let latestReceipt = adjustmentsData.receipt!
+
+        // Save billName/metadata if they changed (generic endpoint, no hash concurrency)
+        const billNameChanged = updatedReceipt.billName !== receipt.billName
+        const metadataChanged =
+          JSON.stringify(updatedReceipt.metadata) !== JSON.stringify(receipt.metadata)
+
+        if (billNameChanged || metadataChanged) {
+          const metaUpdates: Record<string, unknown> = {}
+          if (billNameChanged) metaUpdates.billName = updatedReceipt.billName ?? ""
+          if (metadataChanged) metaUpdates.metadata = updatedReceipt.metadata
+
+          const metaResponse = await fetch(`/api/receipts/${receiptId}`, {
+            method: "PUT",
+            headers,
+            body: JSON.stringify(metaUpdates),
+          })
+
+          const metaData = (await metaResponse.json().catch(() => ({}))) as {
+            success?: boolean
+            receipt?: Receipt
+            error?: string
+          }
+
+          if (metaData.success && metaData.receipt) {
+            latestReceipt = metaData.receipt
+          } else if (!metaResponse.ok) {
+            throw new Error(
+              metaData.error || `Failed to update receipt metadata (${metaResponse.status})`
+            )
+          }
+        }
+
+        await setReceiptFromCloud(latestReceipt)
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error")
+        // Don't clobber the error state for SyncConflictError — fetchReceipt already
+        // cleared it and the receipt is valid; only the toast matters for that case.
+        if (!(err instanceof SyncConflictError)) {
+          setError(err instanceof Error ? err.message : "Unknown error")
+        }
         throw err // Caller decides whether to show a toast (SyncConflictError → no extra toast)
       } finally {
         setIsLoading(false)
@@ -574,11 +590,12 @@ export function useReceipt(
       const data = await response.json()
 
       if (data.success && data.receiptId) {
-        const updatedReceipt = { ...receipt, isShared: true, shareKey } as Receipt
+        // Use the server response receipt so receipt.hash is correct for subsequent saves
+        const updatedReceipt = (data.receipt as Receipt) ?? { ...receipt, isShared: true, shareKey }
         storeActions.updateReceipt(receiptId, updatedReceipt)
         setReceipt(updatedReceipt)
         setSource("cloud")
-        return { receiptId: data.receiptId, shareKey }
+        return { receiptId: data.receiptId, shareKey: data.shareKey || shareKey }
       } else {
         throw new Error(data.error || "Unknown error")
       }
