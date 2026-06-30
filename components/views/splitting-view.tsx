@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,6 +43,27 @@ export default function SplittingView({
 }) {
   const [editedReceipt, setEditedReceipt] = useState(receipt)
   const [newPersonName, setNewPersonName] = useState("")
+  const addPersonInputRef = useRef<HTMLInputElement>(null)
+  const addPersonRowRef = useRef<HTMLDivElement>(null)
+
+  // On iOS the keyboard shrinks visualViewport without scrolling content. When
+  // the keyboard appears while the name input is focused, scroll the whole row
+  // (input + button) above the keyboard.
+  useEffect(() => {
+    const scrollRowIntoView = () => {
+      if (document.activeElement !== addPersonInputRef.current) return
+      if (!addPersonRowRef.current) return
+      const rect = addPersonRowRef.current.getBoundingClientRect()
+      const vv = window.visualViewport
+      if (!vv) return
+      const visibleBottom = vv.offsetTop + vv.height
+      if (rect.bottom > visibleBottom - 16) {
+        window.scrollBy({ top: rect.bottom - visibleBottom + 32, behavior: "smooth" })
+      }
+    }
+    window.visualViewport?.addEventListener("resize", scrollRowIntoView)
+    return () => window.visualViewport?.removeEventListener("resize", scrollRowIntoView)
+  }, [])
 
   const isLineItem = (item: ReceiptLineItem | ReceiptAdjustment): item is ReceiptLineItem =>
     "totalPriceInCents" in item
@@ -499,8 +520,9 @@ export default function SplittingView({
           </div>
         )}
         {(splittingMethod === "manual" || isLineItem(item)) && (
-          <div className="flex items-center space-x-2">
+          <div ref={addPersonRowRef} className="flex items-center space-x-2">
             <Input
+              ref={addPersonInputRef}
               value={newPersonName}
               onChange={(e) => setNewPersonName(e.target.value)}
               placeholder="New person name"
