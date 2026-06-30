@@ -127,7 +127,7 @@ export default function ReceiptContainer({ id, fromScan }: { id: string; fromSca
     const navigateAfter = options?.navigateAfter !== false
     try {
       setIsSaving(true)
-      await saveChangesAction(updatedReceipt.lineItems, updatedReceipt.adjustments)
+      await saveChangesAction(updatedReceipt)
 
       if (navigateAfter) {
         handleViewChange("display", { fromSuccessfulSave: true })
