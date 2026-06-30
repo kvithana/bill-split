@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { formatCurrency } from "@/lib/calculations"
 import { getColorForPerson } from "@/lib/colors"
 import { UNALLOCATED_ID, UNALLOCATED_NAME } from "@/lib/constants"
+import { syncUnallocated } from "@/lib/receipt/portions"
 
 type ViewMode = "display" | "split" | "summary" | "edit"
 
@@ -166,22 +167,11 @@ export default function SplitReceiptContainer({
     )
 
     const currentPortions = item.splitting?.portions || []
-    let updatedPortions
-    if (isAlreadyClaimed) {
-      updatedPortions = currentPortions.filter((p) => p.personId !== currentPerson.id)
-    } else {
-      const unallocated = currentPortions.find((p) => p.personId === UNALLOCATED_ID)
-      let base = currentPortions
-      if (unallocated) {
-        base =
-          unallocated.portions <= 1
-            ? currentPortions.filter((p) => p.personId !== UNALLOCATED_ID)
-            : currentPortions.map((p) =>
-                p.personId === UNALLOCATED_ID ? { ...p, portions: p.portions - 1 } : p
-              )
-      }
-      updatedPortions = [...base, { personId: currentPerson.id, portions: 1 }]
-    }
+    const real = currentPortions.filter((p) => p.personId !== UNALLOCATED_ID)
+    const newReal = isAlreadyClaimed
+      ? real.filter((p) => p.personId !== currentPerson.id)
+      : [...real.filter((p) => p.personId !== currentPerson.id), { personId: currentPerson.id, portions: 1 }]
+    const updatedPortions = syncUnallocated(item.quantity, newReal)
 
     const updatedItems = displayReceipt.lineItems.map((i) =>
       i.id === itemId ? { ...i, splitting: { ...i.splitting, portions: updatedPortions } } : i

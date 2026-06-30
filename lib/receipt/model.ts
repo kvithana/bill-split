@@ -2,7 +2,7 @@ import { Receipt as ReceiptType, ReceiptLineItem, ReceiptAdjustment, ReceiptScan
 import { generateId } from "@/lib/id"
 import { getDeviceId } from "@/lib/device-id"
 import { normalizeReceiptAdjustment } from "@/lib/receipt/adjustment-splitting"
-import { UNALLOCATED_ID } from "@/lib/constants"
+import { syncUnallocated } from "@/lib/receipt/portions"
 
 type CreateReceiptParams = {
   metadata: { businessName?: string; totalInCents: number }
@@ -32,9 +32,7 @@ export class Receipt {
       lineItems: params.lineItems.map((item) => ({
         ...item,
         id: generateId(),
-        splitting: item.splitting ?? {
-          portions: [{ personId: UNALLOCATED_ID, portions: item.quantity }],
-        },
+        splitting: { portions: syncUnallocated(item.quantity, item.splitting?.portions ?? []) },
       })),
       adjustments: params.adjustments.map((adj) =>
         normalizeReceiptAdjustment({ ...adj, id: generateId() })

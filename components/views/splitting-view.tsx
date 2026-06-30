@@ -23,6 +23,7 @@ import { getColorForPerson } from "@/lib/colors"
 import { generateId } from "@/lib/id"
 import { UNALLOCATED_ID, UNALLOCATED_NAME } from "@/lib/constants"
 import { DEFAULT_ADJUSTMENT_SPLIT_METHOD } from "@/lib/receipt/adjustment-splitting"
+import { syncUnallocated } from "@/lib/receipt/portions"
 
 export default function SplittingView({
   receipt,
@@ -81,41 +82,18 @@ export default function SplittingView({
   if (!item) throw new Error("Item not found")
 
   const handlePortionChange = (personId: string, newPortion: number) => {
-    // Skip if personId is empty
     if (!personId || personId.trim() === "") return
 
     if (isLineItem(item)) {
-      const currentPortions = item.splitting?.portions || []
-      const oldValue = currentPortions.find((p) => p.personId === personId)?.portions ?? 1
-      const clampedNew = Math.max(1, newPortion)
-      const delta = clampedNew - oldValue
-
-      let updatedPortions = currentPortions.map((p) =>
-        p.personId === personId ? { ...p, portions: clampedNew } : p
-      )
-
-      // When changing a real person's portions, adjust unallocated by the inverse delta
-      if (delta !== 0 && personId !== UNALLOCATED_ID) {
-        const unallocatedEntry = updatedPortions.find((p) => p.personId === UNALLOCATED_ID)
-        const newUnallocated = (unallocatedEntry?.portions ?? 0) - delta
-        if (newUnallocated <= 0) {
-          updatedPortions = updatedPortions.filter((p) => p.personId !== UNALLOCATED_ID)
-        } else if (unallocatedEntry) {
-          updatedPortions = updatedPortions.map((p) =>
-            p.personId === UNALLOCATED_ID ? { ...p, portions: newUnallocated } : p
-          )
-        } else {
-          updatedPortions = [...updatedPortions, { personId: UNALLOCATED_ID, portions: newUnallocated }]
-        }
-      }
-
-      const updatedItem: ReceiptLineItem = {
+      const real = (item.splitting?.portions || [])
+        .filter((p) => p.personId !== UNALLOCATED_ID)
+        .map((p) => p.personId === personId ? { ...p, portions: Math.max(1, newPortion) } : p)
+      updateItem({
         ...item,
-        splitting: { ...item.splitting, portions: updatedPortions },
-      }
-      updateItem(updatedItem)
+        splitting: { ...item.splitting, portions: syncUnallocated(item.quantity, real) },
+      } as ReceiptLineItem)
     } else {
-      const updatedItem: ReceiptAdjustment = {
+      updateItem({
         ...item,
         splitting: {
           ...item.splitting,
@@ -124,8 +102,7 @@ export default function SplittingView({
               p.personId === personId ? { ...p, portions: Math.max(1, newPortion) } : p
             ) || [],
         },
-      }
-      updateItem(updatedItem)
+      } as ReceiptAdjustment)
     }
   }
 
@@ -241,102 +218,30 @@ export default function SplittingView({
   }
 
   const togglePerson = (personId: string) => {
-    // Skip if personId is empty
     if (!personId || personId.trim() === "") return
 
-    const currentPortions = item.splitting?.portions || []
-    const personIndex = currentPortions.findIndex((p) => p.personId === personId)
-    let updatedPortions
+    const real = (item.splitting?.portions || []).filter((p) => p.personId !== UNALLOCATED_ID)
+    const isSelected = real.some((p) => p.personId === personId)
 
-    if (personIndex === -1) {
-      // Adding a person: absorb one unallocated portion if available
-      const unallocated = currentPortions.find((p) => p.personId === UNALLOCATED_ID)
-      let base = currentPortions
-      if (unallocated) {
-        base =
-          unallocated.portions <= 1
-            ? currentPortions.filter((p) => p.personId !== UNALLOCATED_ID)
-            : currentPortions.map((p) =>
-                p.personId === UNALLOCATED_ID ? { ...p, portions: p.portions - 1 } : p
-              )
-      }
-      updatedPortions = [...base, { personId, portions: 1 }]
-    } else {
-      updatedPortions = currentPortions.filter((p) => p.personId !== personId)
-    }
+    const newReal = isSelected
+      ? real.filter((p) => p.personId !== personId)
+      : [...real, { personId, portions: 1 }]
 
-    const updatedItem = {
-      ...item,
-      splitting: {
-        ...item.splitting,
-        portions: updatedPortions,
-      },
-    } as ReceiptLineItem | ReceiptAdjustment
-    updateItem(updatedItem)
+    const newPortions = isLineItem(item) ? syncUnallocated(item.quantity, newReal) : newReal
+    updateItem({ ...item, splitting: { ...item.splitting, portions: newPortions } } as ReceiptLineItem | ReceiptAdjustment)
   }
 
   const selectAllPeople = () => {
-    // Create updated portions with only valid people
-    const updatedPortions = receipt.people
+    const real = receipt.people
       .filter((person) => person.id && person.id.trim() !== "")
       .map((person) => ({ personId: person.id, portions: 1 }))
-
-    // Preserve unallocated portion if it exists
-    const unallocatedPortion = item.splitting?.portions?.find((p) => p.personId === UNALLOCATED_ID)
-    if (unallocatedPortion) {
-      updatedPortions.push(unallocatedPortion)
-    }
-
-    const updatedItem = {
-      ...item,
-      splitting: {
-        ...item.splitting,
-        portions: updatedPortions,
-      },
-    } as ReceiptLineItem | ReceiptAdjustment
-    updateItem(updatedItem)
+    const newPortions = isLineItem(item) ? syncUnallocated(item.quantity, real) : real
+    updateItem({ ...item, splitting: { ...item.splitting, portions: newPortions } } as ReceiptLineItem | ReceiptAdjustment)
   }
 
   const unselectAllPeople = () => {
-    // Keep only the unallocated portion if it exists
-    const unallocatedPortion = item.splitting?.portions?.find((p) => p.personId === UNALLOCATED_ID)
-    const updatedPortions = unallocatedPortion ? [unallocatedPortion] : []
-
-    const updatedItem = {
-      ...item,
-      splitting: {
-        ...item.splitting,
-        portions: updatedPortions,
-      },
-    } as ReceiptLineItem | ReceiptAdjustment
-    updateItem(updatedItem)
-  }
-
-  const toggleUnallocated = () => {
-    const unallocatedIndex = item.splitting?.portions?.findIndex(
-      (p) => p.personId === UNALLOCATED_ID
-    )
-    let updatedPortions
-
-    if (unallocatedIndex === -1 || unallocatedIndex === undefined) {
-      updatedPortions = [
-        ...(item.splitting?.portions || []).filter((p) => p.personId && p.personId.trim() !== ""),
-        { personId: UNALLOCATED_ID, portions: 1 },
-      ]
-    } else {
-      updatedPortions = (item.splitting?.portions || []).filter(
-        (p) => p.personId !== UNALLOCATED_ID && p.personId && p.personId.trim() !== ""
-      )
-    }
-
-    const updatedItem = {
-      ...item,
-      splitting: {
-        ...item.splitting,
-        portions: updatedPortions,
-      },
-    } as ReceiptLineItem | ReceiptAdjustment
-    updateItem(updatedItem)
+    const newPortions = isLineItem(item) ? syncUnallocated(item.quantity, []) : []
+    updateItem({ ...item, splitting: { ...item.splitting, portions: newPortions } } as ReceiptLineItem | ReceiptAdjustment)
   }
 
   const total = isLineItem(item) ? item.totalPriceInCents : item.amountInCents
@@ -345,8 +250,15 @@ export default function SplittingView({
     ? (item.splitting?.method ?? DEFAULT_ADJUSTMENT_SPLIT_METHOD)
     : "manual"
 
-  const isUnallocatedSelected = item.splitting?.portions?.some((p) => p.personId === UNALLOCATED_ID)
-  const unallocatedPortion = item.splitting?.portions?.find((p) => p.personId === UNALLOCATED_ID)
+  const unallocatedCount = isLineItem(item)
+    ? Math.max(
+        0,
+        item.quantity -
+          (item.splitting?.portions || [])
+            .filter((p) => p.personId !== UNALLOCATED_ID)
+            .reduce((s, p) => s + p.portions, 0)
+      )
+    : 0
 
   return (
     <Card className={"receipt w-full max-w-lg mx-auto font-mono text-sm"}>
@@ -423,51 +335,13 @@ export default function SplittingView({
               </div>
             </div>
 
-            {/* Unallocated row - always shown for manual splits */}
-            <div className="flex items-center space-x-2 border-b border-dashed border-gray-300 pb-2 mb-2">
-              <Button
-                variant={isUnallocatedSelected ? "default" : "outline"}
-                className="flex-grow"
-                onClick={toggleUnallocated}
-                style={isUnallocatedSelected ? { backgroundColor: "#6c757d" } : {}}
-              >
-                {UNALLOCATED_NAME}
-              </Button>
-              {isUnallocatedSelected && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      const newVal = (unallocatedPortion?.portions || 1) - 1
-                      handlePortionChange(UNALLOCATED_ID, newVal)
-                      if (newVal === 0) {
-                        toggleUnallocated()
-                      }
-                    }}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    type="number"
-                    value={unallocatedPortion?.portions || 1}
-                    onChange={(e) =>
-                      handlePortionChange(UNALLOCATED_ID, Number.parseInt(e.target.value))
-                    }
-                    className="w-12 md:w-16 text-center"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      handlePortionChange(UNALLOCATED_ID, (unallocatedPortion?.portions || 1) + 1)
-                    }
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
-            </div>
+            {/* Unallocated row — read-only, derived from quantity minus assigned portions */}
+            {unallocatedCount > 0 && (
+              <div className="flex items-center justify-between border-b border-dashed border-gray-300 pb-2 mb-2 px-1 text-sm text-gray-500">
+                <span>{UNALLOCATED_NAME}</span>
+                <span className="font-mono bg-gray-100 rounded px-2 py-0.5">{unallocatedCount}</span>
+              </div>
+            )}
 
             {receipt.people.map((person, index) => {
               const isSelected = item.splitting?.portions?.some((p) => p.personId === person.id)
@@ -489,9 +363,10 @@ export default function SplittingView({
                         size="icon"
                         onClick={() => {
                           const newVal = (portion?.portions || 1) - 1
-                          handlePortionChange(person.id, newVal)
                           if (newVal === 0) {
                             togglePerson(person.id)
+                          } else {
+                            handlePortionChange(person.id, newVal)
                           }
                         }}
                       >
