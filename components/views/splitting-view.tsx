@@ -64,15 +64,33 @@ export default function SplittingView({
     if (!personId || personId.trim() === "") return
 
     if (isLineItem(item)) {
+      const currentPortions = item.splitting?.portions || []
+      const oldValue = currentPortions.find((p) => p.personId === personId)?.portions ?? 1
+      const clampedNew = Math.max(1, newPortion)
+      const delta = clampedNew - oldValue
+
+      let updatedPortions = currentPortions.map((p) =>
+        p.personId === personId ? { ...p, portions: clampedNew } : p
+      )
+
+      // When changing a real person's portions, adjust unallocated by the inverse delta
+      if (delta !== 0 && personId !== UNALLOCATED_ID) {
+        const unallocatedEntry = updatedPortions.find((p) => p.personId === UNALLOCATED_ID)
+        const newUnallocated = (unallocatedEntry?.portions ?? 0) - delta
+        if (newUnallocated <= 0) {
+          updatedPortions = updatedPortions.filter((p) => p.personId !== UNALLOCATED_ID)
+        } else if (unallocatedEntry) {
+          updatedPortions = updatedPortions.map((p) =>
+            p.personId === UNALLOCATED_ID ? { ...p, portions: newUnallocated } : p
+          )
+        } else {
+          updatedPortions = [...updatedPortions, { personId: UNALLOCATED_ID, portions: newUnallocated }]
+        }
+      }
+
       const updatedItem: ReceiptLineItem = {
         ...item,
-        splitting: {
-          ...item.splitting,
-          portions:
-            item.splitting?.portions?.map((p) =>
-              p.personId === personId ? { ...p, portions: Math.max(1, newPortion) } : p
-            ) || [],
-        },
+        splitting: { ...item.splitting, portions: updatedPortions },
       }
       updateItem(updatedItem)
     } else {
