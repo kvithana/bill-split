@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Receipt, Person, ReceiptLineItem, ReceiptAdjustment } from "@/lib/types"
 import { toast } from "@/hooks/use-toast"
 import { AnimatePresence, motion } from "framer-motion"
-import { Loader2, ArrowLeft, Scissors } from "lucide-react"
+import { Loader2, ArrowLeft, Scissors, Minus, Plus } from "lucide-react"
 import DisplayView from "./views/display-view"
 import SplittingView from "./views/splitting-view"
 import SummaryView from "./views/summary-view"
@@ -192,6 +192,39 @@ export default function SplitReceiptContainer({
     }
   }
 
+  const handlePortionAdjust = async (itemId: string, newCount: number) => {
+    if (!displayReceipt) return
+
+    const item = displayReceipt.lineItems.find((i) => i.id === itemId)
+    if (!item) return
+
+    const real = (item.splitting?.portions || []).filter((p) => p.personId !== UNALLOCATED_ID)
+
+    const newReal =
+      newCount <= 0
+        ? real.filter((p) => p.personId !== currentPerson.id)
+        : real.some((p) => p.personId === currentPerson.id)
+        ? real.map((p) =>
+            p.personId === currentPerson.id ? { ...p, portions: newCount } : p
+          )
+        : [...real, { personId: currentPerson.id, portions: newCount }]
+
+    const updatedPortions = syncUnallocated(item.quantity, newReal)
+    const updatedItems = displayReceipt.lineItems.map((i) =>
+      i.id === itemId ? { ...i, splitting: { ...i.splitting, portions: updatedPortions } } : i
+    )
+
+    try {
+      setLoading(true)
+      await updateLineItems(updatedItems)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update item"
+      toast({ title: "Error updating item", description: message, variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleUpdateAdjustments = async (adjustments: ReceiptAdjustment[]) => {
     try {
       setLoading(true)
@@ -355,8 +388,12 @@ export default function SplitReceiptContainer({
           (p) => p.personId !== UNALLOCATED_ID
         )
         const hasUnallocated = (qItem?.splitting?.portions ?? []).some(
-          (p) => p.personId === UNALLOCATED_ID
+          (p) => p.personId === UNALLOCATED_ID && p.portions > 0
         )
+        const isLineItemQ = qItem && "totalPriceInCents" in qItem
+        const myPortion = assignedPortions.find((p) => p.personId === currentPerson.id)
+        const myCount = myPortion?.portions ?? 0
+        const isClaimedByMeQ = myCount > 0
         const totalCents =
           qItem && "totalPriceInCents" in qItem
             ? qItem.totalPriceInCents
@@ -425,6 +462,31 @@ export default function SplitReceiptContainer({
                       </>
                     )}
                   </div>
+
+                  {isLineItemQ && isClaimedByMeQ && !displayReceipt.isSettled && (
+                    <div className="border-t border-dashed border-gray-300 pt-4">
+                      <p className="text-xs uppercase text-gray-400 mb-3">Your portion</p>
+                      <div className="flex items-center justify-center gap-4">
+                        <button
+                          onClick={() => handlePortionAdjust(quickViewItemId!, myCount - 1)}
+                          className="w-9 h-9 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          aria-label="Decrease portion"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <span className="text-2xl font-bold w-8 text-center tabular-nums">
+                          {myCount}
+                        </span>
+                        <button
+                          onClick={() => handlePortionAdjust(quickViewItemId!, myCount + 1)}
+                          className="w-9 h-9 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          aria-label="Increase portion"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="border-t border-dashed border-gray-300 pt-4">
                     <button

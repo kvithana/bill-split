@@ -27,9 +27,14 @@ export default function ReceiptLineItemRow({
   const realPortions = allPortions.filter((p) => p.personId !== UNALLOCATED_ID)
   const unallocatedEntry = allPortions.find((p) => p.personId === UNALLOCATED_ID)
 
-  // Only meaningful when some real people are assigned AND some portions are still unallocated
   const hasRealClaims = realPortions.length > 0
-  const isPartiallyAllocated = hasRealClaims && !!unallocatedEntry
+  const allocatedRealPortions = realPortions.reduce((sum, p) => sum + p.portions, 0)
+  // Only meaningful when real people are assigned AND genuinely some quantity is still unallocated
+  const isPartiallyAllocated =
+    hasRealClaims &&
+    !!unallocatedEntry &&
+    unallocatedEntry.portions > 0 &&
+    allocatedRealPortions < item.quantity
 
   const isClaimedByMe = !!(currentPersonId && realPortions.some((p) => p.personId === currentPersonId))
 
