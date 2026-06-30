@@ -24,7 +24,7 @@ export default function AvatarList({
 
   return (
     <div className="flex items-center gap-1">
-      {quantity !== undefined && (
+      {quantity !== undefined && allocatedPortions < quantity && (
         <span className="text-xs text-gray-400 font-mono tabular-nums">
           {allocatedPortions}/{quantity}
         </span>
