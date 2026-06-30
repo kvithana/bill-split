@@ -87,6 +87,7 @@ export default function ReceiptLineItemRow({
                 <AvatarList
                   people={people}
                   portions={item.splitting.portions.filter((p) => p.personId !== UNALLOCATED_ID)}
+                  quantity={item.quantity}
                 />
               </div>
             ) : (
