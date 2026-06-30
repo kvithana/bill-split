@@ -205,13 +205,25 @@ export default function SplittingView({
     // Skip if personId is empty
     if (!personId || personId.trim() === "") return
 
-    const personIndex = item.splitting?.portions?.findIndex((p) => p.personId === personId)
+    const currentPortions = item.splitting?.portions || []
+    const personIndex = currentPortions.findIndex((p) => p.personId === personId)
     let updatedPortions
 
     if (personIndex === -1) {
-      updatedPortions = [...(item.splitting?.portions || []), { personId, portions: 1 }]
+      // Adding a person: absorb one unallocated portion if available
+      const unallocated = currentPortions.find((p) => p.personId === UNALLOCATED_ID)
+      let base = currentPortions
+      if (unallocated) {
+        base =
+          unallocated.portions <= 1
+            ? currentPortions.filter((p) => p.personId !== UNALLOCATED_ID)
+            : currentPortions.map((p) =>
+                p.personId === UNALLOCATED_ID ? { ...p, portions: p.portions - 1 } : p
+              )
+      }
+      updatedPortions = [...base, { personId, portions: 1 }]
     } else {
-      updatedPortions = (item.splitting?.portions || []).filter((p) => p.personId !== personId)
+      updatedPortions = currentPortions.filter((p) => p.personId !== personId)
     }
 
     const updatedItem = {

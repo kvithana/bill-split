@@ -166,9 +166,22 @@ export default function SplitReceiptContainer({
     )
 
     const currentPortions = item.splitting?.portions || []
-    const updatedPortions = isAlreadyClaimed
-      ? currentPortions.filter((p) => p.personId !== currentPerson.id)
-      : [...currentPortions, { personId: currentPerson.id, portions: 1 }]
+    let updatedPortions
+    if (isAlreadyClaimed) {
+      updatedPortions = currentPortions.filter((p) => p.personId !== currentPerson.id)
+    } else {
+      const unallocated = currentPortions.find((p) => p.personId === UNALLOCATED_ID)
+      let base = currentPortions
+      if (unallocated) {
+        base =
+          unallocated.portions <= 1
+            ? currentPortions.filter((p) => p.personId !== UNALLOCATED_ID)
+            : currentPortions.map((p) =>
+                p.personId === UNALLOCATED_ID ? { ...p, portions: p.portions - 1 } : p
+              )
+      }
+      updatedPortions = [...base, { personId: currentPerson.id, portions: 1 }]
+    }
 
     const updatedItems = displayReceipt.lineItems.map((i) =>
       i.id === itemId ? { ...i, splitting: { ...i.splitting, portions: updatedPortions } } : i
