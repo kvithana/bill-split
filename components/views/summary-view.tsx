@@ -69,11 +69,10 @@ export default function SummaryView({
         const personPortion = getPersonPortion(personId)(item.splitting?.portions || [])
         if (!personPortion) return null
 
-        const totalPortions = item.splitting?.portions?.reduce((sum, p) => sum + p.portions, 0) || 0
         const amount = calculatePortionAmount(
           item.totalPriceInCents,
           personPortion.portions,
-          totalPortions
+          item.quantity
         )
         return { name: item.name, amount }
       })
