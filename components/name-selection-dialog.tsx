@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,32 @@ export default function NameSelectionDialog({
   const [isAddingNew, setIsAddingNew] = useState(existingPeople.length === 0)
   const [duplicateHint, setDuplicateHint] = useState<string | null>(null)
   const dialogWasOpenRef = useRef(false)
+  const [vvStyle, setVvStyle] = useState<React.CSSProperties>({})
+
+  // Reposition dialog within the visual viewport when the iOS keyboard appears.
+  // Without this, the dialog stays centered on the layout viewport and the keyboard
+  // covers the bottom portion (including the action buttons).
+  useEffect(() => {
+    if (!isOpen) return
+    const vv = window.visualViewport
+    if (!vv) return
+
+    const update = () => {
+      setVvStyle({
+        top: vv.offsetTop + vv.height / 2,
+        maxHeight: vv.height - 32,
+      })
+    }
+
+    update()
+    vv.addEventListener("resize", update)
+    vv.addEventListener("scroll", update)
+    return () => {
+      vv.removeEventListener("resize", update)
+      vv.removeEventListener("scroll", update)
+      setVvStyle({})
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) {
@@ -82,7 +108,8 @@ export default function NameSelectionDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="sm:max-w-md font-mono"
+        className="sm:max-w-md font-mono overflow-y-auto"
+        style={vvStyle}
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
