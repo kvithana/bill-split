@@ -24,6 +24,8 @@ import {
   getPersonPortion,
   calculatePortionAmount,
   calculateUnallocatedAmount,
+  hasAllocationMismatch,
+  getLineItemShareDenominator,
 } from "@/lib/calculations"
 import { motion } from "framer-motion"
 import { ShareReceiptButton } from "../share-receipt-button"
@@ -72,7 +74,7 @@ export default function SummaryView({
         const amount = calculatePortionAmount(
           item.totalPriceInCents,
           personPortion.portions,
-          item.quantity
+          getLineItemShareDenominator(item)
         )
         return { name: item.name, amount }
       })
@@ -128,11 +130,12 @@ export default function SummaryView({
         )
         if (!unallocatedPortion) return null
 
-        const totalPortions = item.splitting?.portions?.reduce((sum, p) => sum + p.portions, 0) || 0
         const amount = calculatePortionAmount(
           "totalPriceInCents" in item ? item.totalPriceInCents : item.amountInCents,
           unallocatedPortion.portions,
-          totalPortions
+          "quantity" in item
+            ? getLineItemShareDenominator(item)
+            : item.splitting?.portions?.reduce((sum, p) => sum + p.portions, 0) || 0
         )
 
         return { name: `${item.name} (partial)`, amount }
@@ -145,6 +148,7 @@ export default function SummaryView({
   const unallocatedItems = getUnallocatedItems()
   const hasUnallocatedItems = unallocatedItems.length > 0
   const totalUnallocatedAmount = calculateUnallocatedAmount(receipt)
+  const allocationMismatch = hasAllocationMismatch(receipt)
 
   return (
     <Card className={"receipt w-full max-w-lg mx-auto font-mono text-sm"}>
@@ -232,6 +236,18 @@ export default function SummaryView({
             )}
           </div>
         ))}
+
+        {allocationMismatch && (
+          <div className="mt-2 bg-amber-50 border border-amber-300 text-amber-900 p-3 rounded-md">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+              <p className="text-xs">
+                Person shares don&apos;t add up to the bill total. Try re-assigning items, or refresh
+                if this receipt was recently fixed.
+              </p>
+            </div>
+          </div>
+        )}
 
         {hasUnallocatedItems && (
           <div className="mt-2 -mb-4 bg-gray-800 text-white p-4 rounded-md">

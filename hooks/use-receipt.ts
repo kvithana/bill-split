@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast"
 import { personNameCollides } from "@/lib/people"
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client"
 import { fromRow } from "@/lib/receipt/row-mapper"
+import { sanitizeAdjustments, sanitizeLineItems } from "@/lib/receipt/sanitize-portions"
 
 // Type for receipt source - determines where the receipt is stored
 export type ReceiptSource = "local" | "cloud"
@@ -233,7 +234,8 @@ export function useReceipt(
       try {
         if (source === "local") {
           storeActions.updateLineItems(receiptId, lineItems)
-          setReceipt((prev) => (prev ? { ...prev, lineItems } : null))
+          const cleaned = sanitizeLineItems(lineItems, receipt.people)
+          setReceipt((prev) => (prev ? { ...prev, lineItems: cleaned } : null))
         } else {
           setIsLoading(true)
           const response = await fetch(`/api/receipts/${receiptId}/line-items`, {
@@ -266,7 +268,8 @@ export function useReceipt(
       try {
         if (source === "local") {
           storeActions.updateAdjustments(receiptId, adjustments)
-          setReceipt((prev) => (prev ? { ...prev, adjustments } : null))
+          const cleaned = sanitizeAdjustments(adjustments, receipt.people)
+          setReceipt((prev) => (prev ? { ...prev, adjustments: cleaned } : null))
         } else {
           setIsLoading(true)
           const response = await fetch(`/api/receipts/${receiptId}/adjustments`, {

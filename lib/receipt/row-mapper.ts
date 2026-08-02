@@ -1,5 +1,5 @@
 import { Receipt } from "@/lib/types"
-import { normalizeReceiptAdjustment } from "@/lib/receipt/adjustment-splitting"
+import { sanitizeReceiptPortions } from "@/lib/receipt/sanitize-portions"
 
 // Type matching the Supabase receipts table columns
 export type ReceiptRow = {
@@ -41,7 +41,7 @@ export function toRow(receipt: Receipt): ReceiptRow {
 }
 
 export function fromRow(row: ReceiptRow): Receipt {
-  return {
+  return sanitizeReceiptPortions({
     id: row.id,
     createdAt: row.created_at,
     billName: row.bill_name ?? undefined,
@@ -49,9 +49,7 @@ export function fromRow(row: ReceiptRow): Receipt {
     metadata: row.metadata as Receipt["metadata"],
     people: row.people as Receipt["people"],
     lineItems: row.line_items as Receipt["lineItems"],
-    adjustments: (row.adjustments as Receipt["adjustments"]).map((a) =>
-      normalizeReceiptAdjustment(a)
-    ),
+    adjustments: row.adjustments as Receipt["adjustments"],
     ownerId: row.owner_id,
     deviceId: row.device_id,
     isShared: row.is_shared,
@@ -59,5 +57,5 @@ export function fromRow(row: ReceiptRow): Receipt {
     hash: row.hash,
     lastSyncedAt: row.last_synced_at ?? undefined,
     isSettled: row.is_settled ?? false,
-  }
+  })
 }

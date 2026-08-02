@@ -3,6 +3,7 @@ import { CloudReceiptStorage } from "@/lib/receipt/cloud-storage"
 import { ReceiptLineItemSchema } from "@/lib/types"
 import { z } from "zod"
 import { validateRequest } from "@/lib/auth/validate-request"
+import { sanitizeLineItems } from "@/lib/receipt/sanitize-portions"
 
 // Schema for the request body
 const UpdateLineItemsSchema = z.object({
@@ -46,11 +47,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     try {
-      // Update the receipt with new line items
+      const people = authResult.receipt.toData().people
       const updatedReceipt = await CloudReceiptStorage.updateReceipt(
         receiptId,
         {
-          lineItems: data.lineItems,
+          lineItems: sanitizeLineItems(data.lineItems, people),
         },
         data.hash
       )

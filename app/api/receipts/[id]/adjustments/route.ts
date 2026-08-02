@@ -4,6 +4,7 @@ import { z } from "zod"
 import { validateRequest } from "@/lib/auth/validate-request"
 import { ReceiptAdjustmentInputSchema } from "@/lib/types"
 import { normalizeReceiptAdjustment } from "@/lib/receipt/adjustment-splitting"
+import { sanitizeAdjustments } from "@/lib/receipt/sanitize-portions"
 
 // Schema for the request body
 const UpdateAdjustmentsSchema = z.object({
@@ -47,11 +48,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     try {
-      // Update the receipt with new adjustments
+      const people = authResult.receipt.toData().people
       const updatedReceipt = await CloudReceiptStorage.updateReceipt(
         receiptId,
         {
-          adjustments: data.adjustments.map(normalizeReceiptAdjustment),
+          adjustments: sanitizeAdjustments(
+            data.adjustments.map(normalizeReceiptAdjustment),
+            people
+          ),
         },
         data.hash
       )

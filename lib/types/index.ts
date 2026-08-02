@@ -5,9 +5,11 @@ export const PersonSchema = z.object({
   name: z.string(),
 })
 
-const PersonPortionSchema = z.object({
-  personId: z.string(),
-  portions: z.number(), // whole numbers: 2 slices, 1 serving, etc.
+export const PersonPortionSchema = z.object({
+  personId: z.string().min(1).refine((id) => id !== "undefined", {
+    message: "personId must be a real id",
+  }),
+  portions: z.number().int().positive(), // whole numbers: 2 slices, 1 serving, etc.
 })
 
 const ReceiptMetadataSchema = z.object({
@@ -26,6 +28,14 @@ export const ReceiptLineItemSchema = z.object({
       portions: z.array(PersonPortionSchema),
     })
     .optional(),
+})
+
+/** OCR scan line items — no splitting; the model must not invent claims. */
+export const ReceiptScanLineItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  quantity: z.number(),
+  totalPriceInCents: z.number(),
 })
 
 const SplitMethodSchema = z.enum([
@@ -75,7 +85,7 @@ export const ReceiptSchema = z.object({
 
 export const ReceiptScanSchema = z.object({
   metadata: ReceiptMetadataSchema,
-  lineItems: z.array(ReceiptLineItemSchema),
+  lineItems: z.array(ReceiptScanLineItemSchema),
   adjustments: z.array(ReceiptAdjustmentInputSchema),
 })
 

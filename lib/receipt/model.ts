@@ -6,7 +6,7 @@ import { syncUnallocated } from "@/lib/receipt/portions"
 
 type CreateReceiptParams = {
   metadata: { businessName?: string; totalInCents: number }
-  lineItems: Omit<ReceiptLineItem, "id">[]
+  lineItems: ReceiptScan["lineItems"] | Omit<ReceiptLineItem, "id">[]
   adjustments: ReceiptScan["adjustments"]
   imageUrl: string
   deviceId?: string // Optional deviceId override
@@ -29,10 +29,13 @@ export class Receipt {
       people: [],
       imageUrl: params.imageUrl,
       metadata: params.metadata,
+      // Never trust OCR/invented splitting — start with quantity fully unallocated.
       lineItems: params.lineItems.map((item) => ({
-        ...item,
         id: generateId(),
-        splitting: { portions: syncUnallocated(item.quantity, item.splitting?.portions ?? []) },
+        name: item.name,
+        quantity: item.quantity,
+        totalPriceInCents: item.totalPriceInCents,
+        splitting: { portions: syncUnallocated(item.quantity, []) },
       })),
       adjustments: params.adjustments.map((adj) =>
         normalizeReceiptAdjustment({ ...adj, id: generateId() })

@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase/client"
 import { Receipt } from "@/lib/types"
 import { computeReceiptHash } from "./hash"
 import { toRow, fromRow } from "./row-mapper"
+import { sanitizeReceiptPortions } from "./sanitize-portions"
 
 /**
  * Utility class for cloud receipt storage operations using Supabase.
@@ -60,11 +61,11 @@ export class CloudReceiptStorage {
       throw new Error("Receipt has been modified by another user")
     }
 
-    const updatedReceipt: Receipt = {
+    const updatedReceipt = sanitizeReceiptPortions({
       ...currentReceipt,
       ...updates,
       lastSyncedAt: new Date().toISOString(),
-    }
+    })
 
     return await this.saveReceipt(updatedReceipt)
   }
@@ -100,7 +101,23 @@ export class CloudReceiptStorage {
 
     return await this.updateReceipt(
       receiptId,
-      { people: receipt.people.filter((p) => p.id !== personId) },
+      {
+        people: receipt.people.filter((p) => p.id !== personId),
+        lineItems: receipt.lineItems.map((item) => ({
+          ...item,
+          splitting: {
+            ...item.splitting,
+            portions: (item.splitting?.portions ?? []).filter((p) => p.personId !== personId),
+          },
+        })),
+        adjustments: receipt.adjustments.map((adj) => ({
+          ...adj,
+          splitting: {
+            ...adj.splitting,
+            portions: adj.splitting.portions?.filter((p) => p.personId !== personId),
+          },
+        })),
+      },
       hash
     )
   }

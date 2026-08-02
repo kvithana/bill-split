@@ -1,6 +1,7 @@
 import { prop, uniqBy } from "ramda"
 import { State } from "./types"
 import { Person, ReceiptAdjustment, ReceiptLineItem, Receipt as ReceiptType } from "@/lib/types"
+import { sanitizeAdjustments, sanitizeLineItems } from "@/lib/receipt/sanitize-portions"
 
 type SetFn = (fn: (state: State) => Partial<State>) => void
 
@@ -71,11 +72,35 @@ export const receipt = {
   },
 
   updateLineItems: (set: SetFn, receiptId: string) => (lineItems: ReceiptLineItem[]) => {
-    updateReceiptProperty<ReceiptLineItem>(set, receiptId, "lineItems", () => lineItems)
+    set((state) => {
+      const current = state.receipts[receiptId]
+      if (!current) return {}
+      return {
+        receipts: {
+          ...state.receipts,
+          [receiptId]: {
+            ...current,
+            lineItems: sanitizeLineItems(lineItems, current.people),
+          },
+        },
+      }
+    })
   },
 
   updateAdjustments: (set: SetFn, receiptId: string) => (adjustments: ReceiptAdjustment[]) => {
-    updateReceiptProperty<ReceiptAdjustment>(set, receiptId, "adjustments", () => adjustments)
+    set((state) => {
+      const current = state.receipts[receiptId]
+      if (!current) return {}
+      return {
+        receipts: {
+          ...state.receipts,
+          [receiptId]: {
+            ...current,
+            adjustments: sanitizeAdjustments(adjustments, current.people),
+          },
+        },
+      }
+    })
   },
 
   updatePerson: (set: SetFn, receiptId: string) => (personId: string, updates: Partial<Person>) => {

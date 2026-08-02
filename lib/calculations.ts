@@ -1,4 +1,4 @@
-import type { Receipt, ReceiptLineItem, ReceiptAdjustment, PersonPortion } from "@/lib/types"
+import type { Receipt, ReceiptAdjustment, PersonPortion } from "@/lib/types"
 import { UNALLOCATED_ID } from "@/lib/constants"
 import { DEFAULT_ADJUSTMENT_SPLIT_METHOD } from "@/lib/receipt/adjustment-splitting"
 
@@ -11,17 +11,40 @@ export const calculatePortionAmount = (
   total: number,
   portion: number,
   totalPortions: number
-): number => Math.round((total * portion) / totalPortions)
+): number => {
+  if (totalPortions <= 0 || !Number.isFinite(totalPortions) || !Number.isFinite(portion)) {
+    return 0
+  }
+  return Math.round((total * portion) / totalPortions)
+}
+
+/**
+ * Share denominator for a line item: normally `quantity`, but never less than the sum of
+ * real (non-unallocated) portions. Prevents overcharge when claimants exceed quantity
+ * (e.g. three people each with portions:1 on a qty-1 shared dish).
+ */
+export const getLineItemShareDenominator = (item: {
+  quantity: number
+  splitting?: { portions?: PersonPortion[] }
+}): number => {
+  const realSum = (item.splitting?.portions ?? [])
+    .filter((p) => p.personId !== UNALLOCATED_ID)
+    .reduce((sum, p) => sum + p.portions, 0)
+  return Math.max(item.quantity || 0, realSum)
+}
 
 export const calculatePersonLineItemsTotal = (receipt: Receipt, personId: string): number =>
   receipt.lineItems.reduce((total, item) => {
     const personPortion = getPersonPortion(personId)(item.splitting?.portions || [])
     if (!personPortion) return total
 
-    // Always divide by item.quantity — semantically correct (person pays portions/quantity of the price)
-    // and handles both old data (no UNALLOCATED_ID) and stale UNALLOCATED_ID entries
     return (
-      total + calculatePortionAmount(item.totalPriceInCents, personPortion.portions, item.quantity)
+      total +
+      calculatePortionAmount(
+        item.totalPriceInCents,
+        personPortion.portions,
+        getLineItemShareDenominator(item)
+      )
     )
   }, 0)
 
@@ -33,12 +56,11 @@ export const calculateAdjustmentAmount = (
   const method = adjustment.splitting.method ?? DEFAULT_ADJUSTMENT_SPLIT_METHOD
 
   if (method === "equal") {
-    // Count only real people for equal splits, not unallocated
-    const realPeoplePortions = adjustment.splitting.portions?.filter(
-      (p) => p.personId !== UNALLOCATED_ID
-    ).length
-    const participatingPeople = realPeoplePortions || receipt.people.length
-    return Math.round(adjustment.amountInCents / participatingPeople)
+    // Always split evenly among everyone on the bill (matches UI copy).
+    // Do not use portions.length — stale/partial portions would overcharge.
+    const n = receipt.people.length
+    if (n === 0) return 0
+    return Math.round(adjustment.amountInCents / n)
   }
 
   if (method === "proportional") {
@@ -102,10 +124,13 @@ export const calculateUnallocatedAmount = (receipt: Receipt): number => {
       )
       if (!unallocatedPortion) return sum
 
-      const totalPortions = item.splitting?.portions?.reduce((s, p) => s + p.portions, 0) || 0
       return (
         sum +
-        calculatePortionAmount(item.totalPriceInCents, unallocatedPortion.portions, totalPortions)
+        calculatePortionAmount(
+          item.totalPriceInCents,
+          unallocatedPortion.portions,
+          getLineItemShareDenominator(item)
+        )
       )
     }, 0)
 
@@ -132,4 +157,21 @@ export const calculateUnallocatedAmount = (receipt: Receipt): number => {
     explicitlyUnallocatedLineItemsAmount +
     explicitlyUnallocatedAdjustmentsAmount
   )
+}
+
+/** Sum of every person's owed amount plus explicitly/implicitly unallocated money. */
+export const calculateAllocatedTotal = (receipt: Receipt): number =>
+  receipt.people.reduce((sum, person) => sum + calculatePersonTotal(receipt, person.id), 0) +
+  calculateUnallocatedAmount(receipt)
+
+/**
+ * True when person shares diverge from the receipt total beyond rounding slack.
+ * Skips while any money is still unallocated — proportional tips intentionally leave a gap
+ * until food is fully claimed, which would otherwise false-alarm mid-split.
+ */
+export const hasAllocationMismatch = (receipt: Receipt): boolean => {
+  if (calculateUnallocatedAmount(receipt) > 0) return false
+
+  const slack = Math.max(receipt.people.length, 2)
+  return Math.abs(calculateAllocatedTotal(receipt) - calculateReceiptTotal(receipt)) > slack
 }
