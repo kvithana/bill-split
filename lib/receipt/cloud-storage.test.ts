@@ -112,6 +112,35 @@ describe("CloudReceiptStorage.saveReceipt", () => {
     expect(chain.upsert).toHaveBeenCalledOnce()
   })
 
+  it("strips orphan portions before persisting", async () => {
+    const chain = makeSupabaseChain()
+    chain.upsert.mockResolvedValue({ error: null })
+    mockFrom.mockReturnValue(chain as unknown as ReturnType<typeof supabase.from>)
+
+    const dirty: Receipt = {
+      ...baseReceipt,
+      lineItems: [
+        {
+          id: "li1",
+          name: "Burger",
+          quantity: 1,
+          totalPriceInCents: 1200,
+          splitting: {
+            portions: [
+              { personId: "1", portions: 1 },
+              { personId: "p1", portions: 1 },
+            ],
+          },
+        },
+      ],
+    }
+
+    const saved = await CloudReceiptStorage.saveReceipt(dirty)
+    expect(saved.lineItems[0]?.splitting?.portions).toEqual([{ personId: "p1", portions: 1 }])
+    const upserted = chain.upsert.mock.calls[0]?.[0]
+    expect(upserted.line_items[0].splitting.portions).toEqual([{ personId: "p1", portions: 1 }])
+  })
+
   it("throws on upsert error", async () => {
     const chain = makeSupabaseChain()
     chain.upsert.mockResolvedValue({ error: { message: "constraint violation" } })

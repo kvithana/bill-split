@@ -66,7 +66,10 @@ describe("sanitizeLineItems / sanitizeReceiptPortions", () => {
       people
     )
 
-    expect(cleaned[0]?.splitting?.portions).toEqual([{ personId: "alice", portions: 1 }])
+    expect(cleaned[0]?.splitting?.portions).toEqual([
+      { personId: "alice", portions: 1 },
+      { personId: UNALLOCATED_ID, portions: 2 },
+    ])
   })
 
   it("clears non-manual adjustment portions while sanitizing manual ones", () => {

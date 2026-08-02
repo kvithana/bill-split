@@ -15,6 +15,8 @@ describe("computeReceiptHash", () => {
   it("produces a consistent hex string", async () => {
     const hash = await computeReceiptHash(baseReceipt)
     expect(hash).toMatch(/^[0-9a-f]{64}$/)
+    // Stable vector so offline rehash scripts can match Web Crypto output
+    expect(hash).toBe("3fa7b4b9c780a0679e9607cc7fed87fffe6bb97fb642f117543b3e7cde33b85e")
   })
 
   it("returns the same hash for identical input", async () => {

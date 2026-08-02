@@ -22,19 +22,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     receiptId = (await params).id
     const body = await request.json()
 
-    // Validate the request body
-    const { success, data, error } = UpdateAdjustmentsSchema.safeParse(body)
-    if (!success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid adjustments data",
-          details: error.issues,
-        },
-        { status: 400 }
-      )
-    }
-
     const authResult = await validateRequest(request, receiptId)
     if (!authResult.success) {
       return NextResponse.json(authResult, { status: authResult.code })
@@ -47,15 +34,35 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
+    const people = authResult.receipt.toData().people
+    const rawAdjustments = Array.isArray(body.adjustments) ? body.adjustments : []
+    const cleanedAdjustments = sanitizeAdjustments(
+      rawAdjustments.map((adj: { id: string; name: string; amountInCents: number; splitting?: unknown }) =>
+        normalizeReceiptAdjustment(adj as Parameters<typeof normalizeReceiptAdjustment>[0])
+      ),
+      people
+    )
+
+    const { success, data, error } = UpdateAdjustmentsSchema.safeParse({
+      ...body,
+      adjustments: cleanedAdjustments,
+    })
+    if (!success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid adjustments data",
+          details: error.issues,
+        },
+        { status: 400 }
+      )
+    }
+
     try {
-      const people = authResult.receipt.toData().people
       const updatedReceipt = await CloudReceiptStorage.updateReceipt(
         receiptId,
         {
-          adjustments: sanitizeAdjustments(
-            data.adjustments.map(normalizeReceiptAdjustment),
-            people
-          ),
+          adjustments: data.adjustments.map(normalizeReceiptAdjustment),
         },
         data.hash
       )

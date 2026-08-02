@@ -92,12 +92,43 @@ describe("line item claims", () => {
     })
 
     const receipt = sanitizeReceiptPortions(dirty)
+    // qty 3 with 2 claimants → remaining 1 synced to unallocated
     expect(receipt.lineItems[0].splitting?.portions).toEqual([
       { personId: "alice", portions: 1 },
       { personId: "bob", portions: 1 },
+      { personId: UNALLOCATED_ID, portions: 1 },
     ])
-    expect(calculatePersonTotal(receipt, "alice")).toBe(1800)
-    expect(calculatePersonTotal(receipt, "bob")).toBe(1800)
+    expect(calculatePersonTotal(receipt, "alice")).toBe(1200)
+    expect(calculatePersonTotal(receipt, "bob")).toBe(1200)
+  })
+
+  it("does not overcharge when claimants exceed quantity", () => {
+    const receipt = baseReceipt({
+      lineItems: [
+        {
+          id: "li1",
+          name: "Shared dish",
+          quantity: 1,
+          totalPriceInCents: 2400,
+          splitting: {
+            portions: [
+              { personId: "alice", portions: 1 },
+              { personId: "bob", portions: 1 },
+              { personId: "carol", portions: 1 },
+            ],
+          },
+        },
+      ],
+      people: [
+        { id: "alice", name: "Alice" },
+        { id: "bob", name: "Bob" },
+        { id: "carol", name: "Carol" },
+      ],
+    })
+
+    const shares = receipt.people.map((p) => calculatePersonTotal(receipt, p.id))
+    expect(shares).toEqual([800, 800, 800])
+    expect(shares.reduce((a, b) => a + b, 0)).toBe(2400)
   })
 })
 
@@ -204,6 +235,39 @@ describe("allocation invariant", () => {
     expect(hasAllocationMismatch(sanitizeReceiptPortions(dirty))).toBe(false)
   })
 
+  it("does not warn mid-split when proportional tip leaves a gap on unclaimed food", () => {
+    const receipt = baseReceipt({
+      lineItems: [
+        {
+          id: "li1",
+          name: "Claimed",
+          quantity: 1,
+          totalPriceInCents: 10000,
+          splitting: { portions: [{ personId: "alice", portions: 1 }] },
+        },
+        {
+          id: "li2",
+          name: "Open",
+          quantity: 1,
+          totalPriceInCents: 5000,
+          splitting: { portions: [] },
+        },
+      ],
+      adjustments: [
+        {
+          id: "tip",
+          name: "Tip",
+          amountInCents: 1500,
+          splitting: { method: "proportional", portions: [] },
+        },
+      ],
+    })
+
+    // Gap exists, but unallocated food means this is an in-progress split — not a corruption signal.
+    expect(calculateAllocatedTotal(receipt)).toBeLessThan(calculateReceiptTotal(receipt))
+    expect(hasAllocationMismatch(receipt)).toBe(false)
+  })
+
   it("counts unallocated money toward allocated total", () => {
     const receipt = baseReceipt({
       lineItems: [
@@ -217,7 +281,7 @@ describe("allocation invariant", () => {
         {
           id: "li2",
           name: "Partial",
-          quantity: 1,
+          quantity: 2,
           totalPriceInCents: 1000,
           splitting: {
             portions: [

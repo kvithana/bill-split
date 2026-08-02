@@ -12,9 +12,11 @@ export class CloudReceiptStorage {
    * Store a receipt in the cloud (insert or replace).
    */
   static async saveReceipt(receipt: Receipt): Promise<Receipt> {
-    const hash = await computeReceiptHash(receipt)
+    // Always persist a sanitized document so create/moveToCloud cannot reintroduce orphans.
+    const sanitized = sanitizeReceiptPortions(receipt)
+    const hash = await computeReceiptHash(sanitized)
     const cloudReceipt: Receipt = {
-      ...receipt,
+      ...sanitized,
       isShared: true,
       lastSyncedAt: new Date().toISOString(),
       hash,

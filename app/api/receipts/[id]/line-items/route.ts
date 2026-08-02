@@ -21,19 +21,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     receiptId = (await params).id
     const body = await request.json()
 
-    // Validate the request body
-    const { success, data, error } = UpdateLineItemsSchema.safeParse(body)
-    if (!success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid line items data",
-          details: error.issues,
-        },
-        { status: 400 }
-      )
-    }
-
     const authResult = await validateRequest(request, receiptId)
     if (!authResult.success) {
       return NextResponse.json(authResult, { status: authResult.code })
@@ -46,12 +33,33 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
+    // Sanitize before Zod so stale fractional/orphan portions from old clients don't 400.
+    const people = authResult.receipt.toData().people
+    const cleanedLineItems = sanitizeLineItems(
+      Array.isArray(body.lineItems) ? body.lineItems : [],
+      people
+    )
+
+    const { success, data, error } = UpdateLineItemsSchema.safeParse({
+      ...body,
+      lineItems: cleanedLineItems,
+    })
+    if (!success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid line items data",
+          details: error.issues,
+        },
+        { status: 400 }
+      )
+    }
+
     try {
-      const people = authResult.receipt.toData().people
       const updatedReceipt = await CloudReceiptStorage.updateReceipt(
         receiptId,
         {
-          lineItems: sanitizeLineItems(data.lineItems, people),
+          lineItems: data.lineItems,
         },
         data.hash
       )
