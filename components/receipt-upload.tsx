@@ -79,10 +79,22 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
     [handleFile]
   )
 
+  const onDropRejected = useCallback(() => {
+    toast({
+      title: "Unsupported image format",
+      description: "Please choose a JPEG, PNG, GIF, or WebP image.",
+      variant: "destructive",
+    })
+  }, [])
+
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: {
-      "image/*": [".jpeg", ".jpg", ".png", ".heic"],
+      "image/jpeg": [".jpeg", ".jpg"],
+      "image/png": [".png"],
+      "image/gif": [".gif"],
+      "image/webp": [".webp"],
     },
     maxFiles: 1,
     multiple: false,
@@ -155,7 +167,7 @@ export default function ReceiptImport({ onDone }: { onDone: (id: string) => void
       e.stopPropagation()
       const input = document.createElement("input")
       input.type = "file"
-      input.accept = "image/*"
+      input.accept = "image/jpeg,image/png,image/gif,image/webp"
       input.capture = "environment"
       input.onchange = (e) => {
         const file = (e.target as HTMLInputElement).files?.[0]
